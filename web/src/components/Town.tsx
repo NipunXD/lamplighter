@@ -19,6 +19,8 @@ interface Sparkle { key: number; x: number; y: number; amount: number }
 interface Tip { id: string; left: number; top: number }
 
 const SPARK_DIRS = [[-18, -22], [16, -26], [-26, -6], [26, -10], [-8, -32], [10, -34]];
+const CLOUDS = [{ y: 0.22, s: 1.15, dur: 190, delay: 40 }, { y: 0.4, s: 0.8, dur: 150, delay: 110 }, { y: 0.12, s: 0.95, dur: 230, delay: 170 }, { y: 0.55, s: 0.6, dur: 130, delay: 20 }];
+const STUDIO = { x: 1118, dy: 100 };
 
 export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,7 @@ export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }
   const mix = useMemo(() => skyMix(hour, H), [hour, H]);
   const stars = useMemo(() => scenery(11, 80), []);
   const flies = useMemo(() => scenery(23, 16), []);
+  const treeline = useMemo(() => scenery(31, 16).map((t, i) => ({ x: 60 + t.x * (TOWN_W - 340), y: layout.horizon + 62 + t.y * 14, s: 0.5 + t.r * 0.3, k: i % 2 })), [layout.horizon]);
   const indexById = useMemo(() => new Map(cases.map((c, i) => [c.case.id, i] as const)), [cases]);
   const horizon = layout.horizon;
 
@@ -152,6 +155,7 @@ export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }
             <stop offset={((horizon + 10) / H).toFixed(4)} stopColor="#1b1638" stopOpacity="1" />
           </linearGradient>
           <radialGradient id="glow"><stop offset="0" stopColor="#ffd27a" stopOpacity="0.95" /><stop offset="0.35" stopColor="#ffb347" stopOpacity="0.55" /><stop offset="1" stopColor="#ff7a1a" stopOpacity="0" /></radialGradient>
+          <radialGradient id="pool"><stop offset="0" stopColor="#ffc46b" stopOpacity="0.6" /><stop offset="0.5" stopColor="#ffb347" stopOpacity="0.22" /><stop offset="1" stopColor="#ffb347" stopOpacity="0" /></radialGradient>
           <radialGradient id="sunGlow"><stop offset="0" stopColor="#fff2b0" stopOpacity="0.9" /><stop offset="1" stopColor="#ffd98a" stopOpacity="0" /></radialGradient>
           <radialGradient id="moonGlow"><stop offset="0" stopColor="#fff8e0" stopOpacity="0.55" /><stop offset="1" stopColor="#fff8e0" stopOpacity="0" /></radialGradient>
           <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7" /></filter>
@@ -177,6 +181,17 @@ export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }
           <circle cx="-5" cy="-3" r="3" fill="#e4dcc2" />
           <circle cx="5" cy="5" r="2" fill="#e4dcc2" />
           <circle cx="4" cy="-6" r="1.4" fill="#e4dcc2" />
+        </g>
+
+        {/* clouds drift all day and fade out at night */}
+        <g className="clouds" style={{ opacity: (1 - mix.night) * 0.85 }}>
+          {CLOUDS.map((c, i) => (
+            <g key={i} className="cloud" style={{ '--cd': `${c.dur}s`, '--cdelay': `-${c.delay}s` } as CSSProperties}>
+              <g transform={`translate(0 ${(c.y * horizon).toFixed(0)}) scale(${c.s})`}>
+                <ellipse cx="0" cy="0" rx="46" ry="14" /><ellipse cx="-28" cy="4" rx="26" ry="10" /><ellipse cx="26" cy="2" rx="30" ry="12" /><ellipse cx="4" cy="-8" rx="24" ry="12" />
+              </g>
+            </g>
+          ))}
         </g>
 
         {/* horizon: far ridge with Jaipur domes, nearer hill with a little parallax */}
@@ -215,11 +230,47 @@ export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }
         </g>
 
         {/* houses (bodies), then the night overlay, then everything that glows */}
+        <g className="treeline">
+          {treeline.map((t, i) => (
+            <g key={i} className="tree" transform={`translate(${t.x.toFixed(0)} ${t.y.toFixed(0)}) scale(${t.s.toFixed(2)})`}>
+              <ellipse cx="0" cy="3" rx="16" ry="4" fill="rgba(43,34,48,0.12)" />
+              <rect x="-2.5" y="-16" width="5" height="19" fill="#6e4a3a" />
+              <circle cx="0" cy="-26" r="14" fill={t.k ? '#7f9a80' : '#8aa48b'} />
+              <circle cx="-10" cy="-18" r="10" fill={t.k ? '#8aa48b' : '#93ab90'} />
+              <circle cx="10" cy="-19" r="11" fill="#93ab90" />
+            </g>
+          ))}
+        </g>
+        <g className="studio" transform={`translate(${STUDIO.x} ${(horizon + STUDIO.dy).toFixed(0)})`}>
+          <ellipse cx="4" cy="3" rx="58" ry="8" fill="rgba(43,34,48,0.16)" />
+          <polygon points="34,-46 54,-56 54,-12 34,0" fill="#d7c19c" />
+          <rect x="-36" y="-46" width="70" height="46" fill="#efdfc2" />
+          <rect x="-40" y="-52" width="98" height="7" rx="1.5" fill="#c96a4a" />
+          <path d="M-36,-46 H34 L54,-56" fill="none" stroke="#e58aa0" strokeWidth="1.6" />
+          <rect x="-30" y="-33" width="60" height="9" rx="1.5" fill="#e58aa0" />
+          <path d="M-30,-33 v9 M-20,-33 v9 M-10,-33 v9 M0,-33 v9 M10,-33 v9 M20,-33 v9" stroke="#f6efe4" strokeWidth="2.6" />
+          <rect x="-26" y="-22" width="20" height="14" rx="1" fill="#3b3040" stroke="#e58aa0" strokeWidth="1" />
+          <rect x="6" y="-22" width="20" height="14" rx="1" fill="#3b3040" stroke="#e58aa0" strokeWidth="1" />
+          <rect x="-6" y="-14" width="9" height="14" fill="#6e4433" />
+          <rect x="-24" y="-63" width="48" height="10" rx="2" fill="#2b2230" />
+          <text x="0" y="-55.5" textAnchor="middle" fontSize="7.2" fontWeight="700" fill="#f6efe4" style={{ fontFamily: 'var(--font-display)', letterSpacing: 0.3 }}>Saanjh &amp; Co.</text>
+          <path d="M-40,-23 h-6 v11 h6 M-44,-20 a2,2 0 0 1 4,0" fill="none" stroke="#5a4b5e" strokeWidth="1.2" />
+          <rect x="-58" y="-30" width="3" height="30" className="h-post" />
+        </g>
         <g className="houses">
           {layout.spots.map((sp, i) => cases[i] && <House key={cases[i].case.id} st={cases[i]} x={sp.x} y={sp.y} s={sp.s} i={i} selected={cases[i].case.id === selectedId} />)}
         </g>
         <rect className="night-overlay" width={TOWN_W} height={H} fill="url(#nightFade)" style={{ opacity: overlayOpacity }} />
         <g className="lights">
+          <g className="studio-lights" transform={`translate(${STUDIO.x} ${(horizon + STUDIO.dy).toFixed(0)})`}>
+            <ellipse cx="-56" cy="3" rx="34" ry="9" className="pool-always" />
+            <rect x="-25.5" y="-21.5" width="19" height="13" className="swin" />
+            <rect x="6.5" y="-21.5" width="19" height="13" className="swin" />
+            <circle cx="-56" cy="-36" r="18" className="sglow" />
+            <rect x="-62" y="-42" width="12" height="13" rx="1.5" fill="#3b3040" stroke="#2b2230" strokeWidth="0.8" />
+            <path d="M-56,-40.5 c-2.6,3.2 -2.6,6.4 0,8 c2.6,-1.6 2.6,-4.8 0,-8z" fill="#ffb347" />
+            {[0, 1.3].map((d) => <circle key={d} className="puff" cx="44" cy="-58" r="3" style={{ '--pd': `${d}s` } as CSSProperties} />)}
+          </g>
           {layout.spots.map((sp, i) => cases[i] && <HouseLights key={cases[i].case.id} st={cases[i]} x={sp.x} y={sp.y} s={sp.s} i={i} selected={false} />)}
         </g>
 

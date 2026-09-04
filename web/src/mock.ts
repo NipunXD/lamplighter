@@ -436,7 +436,7 @@ class MockRun {
     return {
       id: this.id, config: this.config, status: this.status, simStart: SIM_START, simNow: this.simNow, simEnd: this.timeAt(TICKS),
       cases: this.cases(), metrics: this.metrics, baseline: this.baseline, lamplighter: this.lamplighter,
-      auditCount: this.audit.length, auditTail: this.audit.slice(-200),
+      timeline: [], baselineTimeline: [], auditCount: this.audit.length, auditTail: this.audit.slice(-200),
     };
   }
   auditFor(caseId: string) { return this.audit.filter((e) => e.caseId === caseId); }

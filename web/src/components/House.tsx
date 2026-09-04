@@ -25,6 +25,8 @@ export const House = memo(function House({ st, x, y, s, selected }: HouseProps) 
       <polygon points="26,-34 46,-46 46,-12 26,0" className="h-side" />
       <rect x="-26" y="-34" width="52" height="34" className="h-front" />
       <polygon points="0,-60 20,-72 52,-46 32,-34" fill={ROOF_SHADE[c.kind]} />
+      <rect x="36" y="-67" width="7" height="13" className="h-chimney" />
+      <rect x="35" y="-68.5" width="9" height="2.5" className="h-chimcap" />
       <polygon points="-32,-34 0,-60 32,-34" fill={KIND_COLOR[c.kind]} />
       <path d="M-32,-34 H32 L52,-46" className="h-trim" />
       <path d="M-8,-20 a8,8 0 0 1 16,0 v20 h-16z" className="h-doorframe" />
@@ -56,7 +58,13 @@ export const HouseLights = memo(function HouseLights({ st, x, y, s, i }: HousePr
   const style = { '--fd': `${(0.6 + ((i * 7) % 7) / 10).toFixed(2)}s`, '--fdl': `-${((i * 13) % 10) / 10}s` } as CSSProperties;
   return (
     <g className={`lantern st-${st.status}`} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${s.toFixed(3)})`} style={style}>
+      <ellipse cx="-38" cy="3" rx="36" ry="9" className="pool" />
       <rect x="10.5" y="-27.5" width="10" height="9" className="win" />
+      {st.status === 'recovered' && (
+        <g className="smoke">
+          {[0, 1.2, 2.4].map((d) => <circle key={d} className="puff" cx="39.5" cy="-70" r="3.2" style={{ '--pd': `${d}s` } as CSSProperties} />)}
+        </g>
+      )}
       <g className="glows">
         {st.status === 'recovered' && <circle cx="-40" cy="-36" r="38" className="halo" />}
         <circle cx="-40" cy="-36" r="21" className="glow" />
