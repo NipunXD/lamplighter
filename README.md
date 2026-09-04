@@ -36,7 +36,7 @@ Judges and merchants both need to see *why* the agent did something. The town ma
 ## Where the AI is, and how it is kept honest
 
 - **Diagnosis.** Rules map Razorpay's structured error (`code`, `reason`, `step`, description) to a root cause. When rules are unsure — a generic `payment_failed` with a raw string like `U30: DEBIT HAS BEEN FAILED (INSUFFICIENT BALANCE)` or `43: STOLEN CARD` — the local model classifies it under a strict JSON schema. It only overrides the rules when confident, disagreements are logged, and accuracy is measured against the generator's hidden ground truth in every report.
-- **Choice.** The policy engine runs first and produces the approved list. The model picks by index and explains in one line; anything outside the list falls back to the highest expected-value candidate.
+- **Choice.** The policy engine runs first and produces the approved list. When the top options are close in expected value, the model picks by index, is told what the numbers recommend, and must state a reason to deviate. When one option clearly dominates, the numbers win without a model call. Anything outside the list falls back to the highest expected-value candidate.
 - **Copy.** Templates always work. The model drafts warmer copy (Hinglish in Roman script where the customer prefers it). A validator enforces the exact amount, merchant name, `{link}` placeholder, opt-out line, no threatening or urgency words, no Devanagari. Rejections are logged with the reason and the template goes out instead.
 - **Money never moves on the model's say-so.** Recovery is recorded either by the simulator (labelled `simulated`) or by Razorpay after signature verification and capture (labelled `razorpay`).
 
@@ -46,7 +46,7 @@ The model is `qwen3-4b` running locally in LM Studio through the OpenAI-compatib
 
 - **Real:** Razorpay test-mode Orders for every outreach and every silent retry; the self-hosted Standard Checkout page; HMAC-SHA256 signature verification; capture of authorized payments; polling of order payments; the local model calls; the policy engine; the audit chain.
 - **Simulated:** the customers. Each has a hidden archetype (temporary funds, forgot, friction, intent lost, hard no, disputer, busy accounts-payable), a salary day, an annoyance threshold, a chance of replying STOP. The agent never reads this. Notifications are not sent (synthetic contacts); the audit log says `delivery: simulated`.
-- **Not counted:** payments that would land after the 7-day window; cases still open at the end are closed as "window ended".
+- **Not counted:** payments that would land after the window (7 days in the live town, 14 days in the batch report because B2B promise-to-pay dates run a week or more out); cases still open at the end are closed as "window ended".
 - **Known limit:** Razorpay test mode caps Payment Links at 30 per account, which is why links are Orders + a hosted page. In production the same page is the merchant's checkout, or a Payment Link.
 
 ## Run it
@@ -65,7 +65,7 @@ Open http://localhost:5173, press **Light the lamps**. Click any house. Open a p
 Headless batch with report and baseline:
 
 ```bash
-pnpm batch --seed 7 --size 120 --llm on --razorpay off --baseline on --publish on   # writes docs/METRICS.md
+pnpm batch --seed 7 --size 120 --llm on --razorpay off --days 14 --baseline on --publish on   # writes docs/METRICS.md
 pnpm batch --seed 7 --size 60 --llm on --razorpay on --chaos 0.2                     # watch retries and fallbacks in the audit log
 pnpm test                                                                             # policy rules, audit chain, generator, Razorpay client
 ```

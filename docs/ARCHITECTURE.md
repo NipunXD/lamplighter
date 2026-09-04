@@ -37,13 +37,13 @@ flowchart LR
 
 ## The loop, per case
 
-1. **Arrive.** Cases arrive across the first two simulated days, nights included. Ticks are one simulated hour; a run is a week.
+1. **Arrive.** Cases arrive across the first two simulated days, nights included. Ticks are one simulated hour; a live run is a week, the batch report uses 14 days because B2B promise-to-pay dates land a week or more out.
 2. **Diagnose.** `rulesDiagnosis` maps Razorpay error objects (`code`, `reason`, `step`, description) to a root cause with a confidence.
    When rules are unsure (generic `payment_failed` with a raw bank/NPCI string such as `U30: DEBIT HAS BEEN FAILED (INSUFFICIENT BALANCE)` or `43: STOLEN CARD`),
    the local LLM classifies it under a strict JSON schema. Its answer only replaces the rules when its confidence is high, and the disagreement is logged.
 3. **Enumerate candidates.** `evaluateCandidates` builds every possible action — silent retry, payment link per channel, voice call, incentive, mandate re-auth, escalate, close —
    and runs the full rule list on each one. Every check (passed or failed) goes to the audit log, so the drawer can show *why* an action was not taken.
-4. **Choose.** If more than one substantive action survives, the LLM picks by index from the approved list and explains itself in one line.
+4. **Choose.** If more than one substantive action survives *and* the top two are close in expected value (within 1.6×), the LLM picks by index from the approved list and explains itself in one line; it is told which option the numbers recommend and must give a reason to deviate. When one option clearly dominates, the numbers win without a model call.
    Anything outside the list, or any malformed answer, falls back to the highest expected-value candidate. Expected value counts channel cost, incentive cost and a goodwill cost that grows with each extra knock.
 5. **Compose.** Templates always work. The LLM drafts warmer copy (Hinglish in Roman script for Hinglish customers) and a validator enforces:
    merchant name, exact amount, the `{link}` placeholder, the opt-out line, no threatening or urgency words, no Devanagari, discount stated when offered. Rejected drafts fall back to the template and are logged with the reason.
@@ -61,7 +61,7 @@ flowchart LR
 | root cause when Razorpay's structured error is unambiguous | rules | — |
 | root cause from a raw bank string | local LLM | enum schema, confidence threshold, disagreement logged, accuracy measured against ground truth |
 | what is *allowed* | policy engine (pure functions, unit-tested) | the LLM never sees a disallowed action |
-| which allowed action to take | local LLM (else EV fallback) | index must be in the approved list |
+| which allowed action to take | local LLM when options are close in EV (else EV fallback) | index must be in the approved list; the EV-recommended option is shown and deviating needs a reason |
 | message wording | local LLM (else template) | validator with compliance rules |
 | whether money moved | Razorpay (signature + capture) or the simulator | never the LLM |
 

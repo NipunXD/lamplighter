@@ -209,13 +209,18 @@ export class RecoveryRun {
     const allowed = cands.filter((k) => k.allowed);
     const substantive = allowed.filter((k) => k.action.type !== 'close_case');
     const fb = fallbackChoice(cands);
-    if (!this.llm.enabled || substantive.length < 2) {
-      this.log('agent', 'plan', { action: fb.action.type, channel: fb.action.channel, reason: fb.action.reason, ev: fb.action.expectedValuePaise, source: 'rules', why: substantive.length < 2 ? 'only one sensible option' : 'llm off' }, s.case.id);
+    // The model is consulted when the numbers are close; when one option clearly dominates, the numbers win.
+    const ranked = substantive.filter((k) => k.action.type !== 'escalate_human').sort((a, b) => b.action.expectedValuePaise - a.action.expectedValuePaise);
+    const close = ranked.length >= 2 && ranked[1].action.expectedValuePaise > 0 && ranked[0].action.expectedValuePaise < ranked[1].action.expectedValuePaise * 1.6;
+    if (!this.llm.enabled || substantive.length < 2 || !close) {
+      this.log('agent', 'plan', { action: fb.action.type, channel: fb.action.channel, reason: fb.action.reason, ev: fb.action.expectedValuePaise, source: 'rules', why: !this.llm.enabled ? 'llm off' : substantive.length < 2 ? 'only one sensible option' : 'expected value clearly favours one option' }, s.case.id);
       return fb;
     }
     const history = s.touches.map((t) => `${fmtIST(t.at)}: ${t.action}${t.channel ? ' via ' + t.channel : ''}`).join('; ') || 'none';
     const list = allowed.map((k, i) => `${i}. ${k.action.type}${k.action.channel ? ' via ' + k.action.channel : ''}${k.action.incentivePct ? ` (${k.action.incentivePct}% off)` : ''}${k.action.retryAt ? ` at ${fmtIST(k.action.retryAt)}` : ''} — expected value ₹${(k.action.expectedValuePaise / 100).toFixed(0)}, cost ₹${(k.action.costPaise / 100).toFixed(2)}${k.action.type === 'escalate_human' ? ` — reason: ${k.action.reason}` : ''}`).join('\n');
-    const user = `Case: ${s.case.kind.replace(/_/g, ' ')}, ${rupees(s.case.amountPaise)} for "${s.case.description}". Customer: ${s.case.customer.segment}, speaks ${s.case.customer.lang}, city ${s.case.customer.city}, lifetime value ${rupees(s.case.customer.ltvPaise)}, DND=${s.case.customer.dnd}. Diagnosis: ${s.diagnosis!.rootCause.replace(/_/g, ' ')} (confidence ${s.diagnosis!.confidence.toFixed(2)}): ${s.diagnosis!.reasoning}. Now: ${fmtIST(this.simNow)}. Previous touches: ${history}.\nApproved options:\n${list}\nPick exactly one option by its number.`;
+    const recommended = allowed.indexOf(fb);
+    const b2bHint = s.case.customer.segment === 'b2b' ? ' This is a B2B receivable: accounts teams respond to a call or an email they can forward, not to chat nudges.' : '';
+    const user = `Case: ${s.case.kind.replace(/_/g, ' ')}, ${rupees(s.case.amountPaise)} for "${s.case.description}". Customer: ${s.case.customer.segment}, speaks ${s.case.customer.lang}, city ${s.case.customer.city}, lifetime value ${rupees(s.case.customer.ltvPaise)}, DND=${s.case.customer.dnd}. Diagnosis: ${s.diagnosis!.rootCause.replace(/_/g, ' ')} (confidence ${s.diagnosis!.confidence.toFixed(2)}): ${s.diagnosis!.reasoning}. Now: ${fmtIST(this.simNow)}. Previous touches: ${history}.${b2bHint}\nApproved options:\n${list}\nExpected value recommends option ${recommended}. Pick it unless you have a concrete reason to prefer another; state the reason. Answer with exactly one option number.`;
     const res = await this.llm.complete('plan', PLAN_SYSTEM, user, PlanSchema, PLAN_JSON, 160);
     if (res.ok && res.value.choice >= 0 && res.value.choice < allowed.length) {
       const pick = allowed[res.value.choice];
