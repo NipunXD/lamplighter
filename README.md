@@ -60,7 +60,7 @@ lms server start && lms load qwen/qwen3-4b -y --identifier qwen3-4b   # or run O
 pnpm dev                        # server on :8787, town on :5173
 ```
 
-Open http://localhost:5173, press **Light the lamps**. Click any house. Open a pay page from the drawer and pay with a Razorpay test method (netbanking → Success, or card `4111 1111 1111 1111`); the lantern relights via `razorpay`.
+If something else already owns port 8787, run `PORT=8801 API_PORT=8801 pnpm dev` instead. Open http://localhost:5173, press **Light the lamps**. Click any house. Open a pay page from the drawer and pay with a Razorpay test method (netbanking → Success, or card `4111 1111 1111 1111`); the lantern relights via `razorpay`.
 
 Headless batch with report and baseline:
 
@@ -70,7 +70,7 @@ pnpm batch --seed 7 --size 60 --llm on --razorpay on --chaos 0.2                
 pnpm test                                                                             # policy rules, audit chain, generator, Razorpay client
 ```
 
-Outputs land in `data/runtime/<run>.json`, `.audit.jsonl` and `.report.md`.
+Outputs land in `data/runtime/<run>.json`, `.audit.jsonl` and `.report.md`. `?mock=1` runs the town fully offline; `?autostart=1` starts a run on load (used for the screenshots); `?run=<id>` re-attaches to a running batch.
 
 ## Architecture
 
