@@ -112,7 +112,13 @@ export function WeekInReview({ snapshot, onClose, live }: { snapshot: RunSnapsho
   const take = b
     ? `${live ? 'So far' : 'Over the window'} the agent recovered ${rupees(m.recoveredPaise)} (${pctOf(m.recoveredPaise, m.atRiskPaise)} of ${rupees(m.atRiskPaise)}) against ${rupees(b.recoveredPaise)} for a naive cron on the same customers, with ${m.touchesPerCase.toFixed(2)} touches per case instead of ${b.touchesPerCase.toFixed(2)}, ${m.complaints} complaint${m.complaints === 1 ? '' : 's'} instead of ${b.complaints}, and ${m.policyViolations} policy violations instead of ${b.policyViolations}.`
     : `${live ? 'So far' : 'Over the window'} the agent recovered ${rupees(m.recoveredPaise)} (${pctOf(m.recoveredPaise, m.atRiskPaise)} of ${rupees(m.atRiskPaise)}) with ${m.touchesPerCase.toFixed(2)} touches per case and ${m.complaints} complaint${m.complaints === 1 ? '' : 's'}.`;
-  const tile = (v: string, l: string, sub?: string) => <div className="rv-tile"><b className="num">{v}</b><span className="lbl">{l}</span>{sub && <span className="sub muted">{sub}</span>}</div>;
+  const tile = (v: string, l: string, sub?: string) => (
+    <div className="rv-tile" style={{ display: 'grid', gap: 3, alignContent: 'start' }}>
+      <b className="num" style={{ display: 'block', fontSize: 22, lineHeight: 1.1 }}>{v}</b>
+      <span className="lbl" style={{ display: 'block', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase', opacity: 0.75 }}>{l}</span>
+      {sub && <span className="sub muted" style={{ display: 'block', fontSize: 11 }}>{sub}</span>}
+    </div>
+  );
   return (
     <section className="review" aria-label="The week in review">
       <header className="review-head">
