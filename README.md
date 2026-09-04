@@ -92,6 +92,8 @@ Outputs land in `data/runtime/<run>.json`, `.audit.jsonl` and `.report.md`. `?mo
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the loop, the guard table and the failure handling. The API contract the town consumes is in [docs/API.md](docs/API.md).
+The engine also exposes policy overrides (`RunConfig.policy`), quiet-hours and DND switches, and human-in-the-loop actions (`humanReopen`, `humanResolve`, `humanClose`) that land in the same audit chain as actor `human`; the server mounts optional route modules (`server/whatif.ts`, `server/inbox.ts`) when present, which is where a policy lab and an escalation desk plug in.
+
 
 ```mermaid
 flowchart LR
