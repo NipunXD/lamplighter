@@ -7,7 +7,7 @@ const API = 'http://127.0.0.1:8801', APP = 'http://localhost:5173', FILM = 'http
 const RUN_A = process.env.RUN_A, RUN_B = process.env.RUN_B;
 if (!RUN_A || !RUN_B) throw new Error('set RUN_A (finished 60-case run) and RUN_B (run paused at night)');
 const FF = execFileSync('python3', ['-c', 'import imageio_ffmpeg as f; print(f.get_ffmpeg_exe())']).toString().trim();
-const pads = { title: 4, problem: 6, town: 3, light: 12, drawer: 10, pay: 18, night: 5, review: 5, reliability: 4, close: 4 };
+const pads = { title: 4, problem: 4, town: 3, light: 20, drawer: 10, pay: 18, night: 3, review: 5, reliability: 2, close: 3 };
 const dur = JSON.parse(fs.readFileSync('film/out/narration/durations.json', 'utf8'));
 let t = 0; const timeline = dur.map((s) => { const d = Math.round((s.audio + pads[s.id]) * 10) / 10; const o = { id: s.id, start: t, dur: d, text: s.text }; t += d; return o; });
 const total = t; const scene = (id) => timeline.find((s) => s.id === id);
@@ -47,12 +47,17 @@ await page.waitForTimeout(2500);
 try { const runs = await (await fetch(`${API}/api/runs`)).json(); runC = runs.filter((r) => r.status === 'running').map((r) => r.id).pop() || null; } catch {}
 console.log('run C', runC);
 
-// ---- drawer: open a house that has a message out
+// ---- drawer: open a house that already has a message out and a pay page (ask the API, then click that house)
 await until('drawer', 0.8);
-let house = app.locator('.house.st-awaiting_customer').first();
 let caseId = null;
-try { await house.waitFor({ timeout: 6000 }); } catch { house = app.locator('.house.st-scheduled, .house.st-recovered').first(); }
-try { caseId = await house.getAttribute('data-case'); await cursorClick(house); } catch (e) { console.log('house click failed', e.message); }
+const deadline = Date.now() + 12000;
+while (runC && Date.now() < deadline) {
+  try { const snap = await (await fetch(`${API}/api/runs/${runC}`)).json(); const cand = snap.cases.find((c) => c.status === 'awaiting_customer' && c.razorpay?.payUrl); if (cand) { caseId = cand.case.id; break; } } catch {}
+  await page.waitForTimeout(1500);
+}
+let house = caseId ? app.locator(`[data-case="${caseId}"]`).first() : app.locator('.house.st-awaiting_customer, .house.st-scheduled, .house').first();
+try { if (!caseId) caseId = await house.getAttribute('data-case'); await cursorClick(house); } catch (e) { console.log('house click failed', e.message); }
+console.log('drawer case', caseId);
 for (const off of [9, 16, 24]) { await until('drawer', off); await page.mouse.move(1550, 700); await page.mouse.wheel(0, 300); }
 
 // ---- pay: open the pay page for that case, try the checkout, then return to the town
