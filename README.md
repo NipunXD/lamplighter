@@ -37,6 +37,9 @@ Each customer is a **house**. Each at-risk payment is a **dark lantern**. Lampli
 
 Diagnosis accuracy against the generator's hidden ground truth: rules alone 71.7%, rules + local model on the raw bank strings **100%** (36 overrides, 36 correct). 407 model calls, 9 fell back to the deterministic path, 30 actions deferred for quiet hours.
 
+
+**Across ten seeded worlds** (rules-only, same world for both arms, [docs/EVAL.md](docs/EVAL.md)): the agent recovers ₹2,58,832 more per 120-case batch than the cron on average (95% CI ₹1,56,604 to ₹3,61,061), wins 10 of 10 seeds on money and on complaints, with 1.61 touches per case instead of 2.50 and 0 policy violations instead of 352. Re-run with `pnpm eval`.
+
 The baseline recovers ₹76 cheaper because it sends nothing but SMS; it also sends 358 messages it was not allowed to send. Invoices carry 81% of the value at risk and recover slowest (27.7% by value), mostly through promise-to-pay dates that fall inside the window only because it is 14 days long; that is why the report window is 14 days and the live town is 7.
 
 
