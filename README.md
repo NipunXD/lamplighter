@@ -21,7 +21,24 @@ Each customer is a **house**. Each at-risk payment is a **dark lantern**. Lampli
 | audit trail | every decision, policy check, model call, Razorpay call and customer event in a hash-chained append-only log with a `/verify` endpoint |
 | one failure handled gracefully | several, exercised with a `chaos` flag: model down or malformed, Razorpay 429/5xx, test-mode quotas, STOP arriving mid-flight |
 
-<!-- METRICS -->
+## Numbers
+
+120 synthetic cases, ₹10,74,826 at risk, one seeded customer world, 14 simulated days, local `qwen3-4b`, model on. Full report with by-kind and by-root-cause tables: [docs/METRICS.md](docs/METRICS.md).
+
+| | Lamplighter agent | naive retry cron (same world) |
+|---|---|---|
+| recovered | **₹3,41,785 (31.8%)** | ₹1,36,148 (12.7%) |
+| cases recovered | **59 / 120** | 19 / 120 |
+| customer touches per case | **1.30** | 2.53 |
+| complaints | **11** | 55 |
+| policy violations | **0** | 358 |
+| escalated to humans, with a reason | 11 | 3 |
+| spend on channels + incentives | ₹2,530 | ₹76 |
+
+Diagnosis accuracy against the generator's hidden ground truth: rules alone 71.7%, rules + local model on the raw bank strings **100%** (36 overrides, 36 correct). 407 model calls, 9 fell back to the deterministic path, 30 actions deferred for quiet hours.
+
+The baseline recovers ₹76 cheaper because it sends nothing but SMS; it also sends 358 messages it was not allowed to send. Invoices carry 81% of the value at risk and recover slowest (27.7% by value), mostly through promise-to-pay dates that fall inside the window only because it is 14 days long; that is why the report window is 14 days and the live town is 7.
+
 
 ## The town is not decoration
 
