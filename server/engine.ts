@@ -5,7 +5,7 @@ import { AuditLog } from './audit.js';
 import { generateBatch, SIM_START } from './data/generate.js';
 import { CustomerWorld, type SimOutcome } from './simulator.js';
 import { LocalLLM } from './llm.js';
-import { RazorpayClient, CircuitOpenError } from './razorpay.js';
+import { RazorpayClient, CircuitOpenError, rzpErrorMessage } from './razorpay.js';
 import { DEFAULT_POLICY, evaluateCandidates, fallbackChoice, matchCandidate, baselineAction, isQuietHours, nextContactWindow, type Candidate, type PolicyConfig } from './policy.js';
 import { diagnose } from './diagnose.js';
 import { composeMessage, LINK, templateMessage } from './compose.js';
@@ -285,7 +285,7 @@ export class RecoveryRun {
           orderId = o.id; this.counters.realOrders++;
           this.log('razorpay', 'order_created', { id: o.id, amount: o.amount, receipt: o.receipt, status: o.status, purpose, payUrl }, id);
         } catch (e: any) {
-          const msg = e instanceof CircuitOpenError ? 'circuit open' : (e?.error?.description ?? e?.message ?? String(e));
+          const msg = rzpErrorMessage(e);
           s.apiFailures = (s.apiFailures ?? 0) + 1;
           if (s.apiFailures < 3) {
             this.log('razorpay', 'api_failed', { op: 'orders.create', error: msg, attempt: s.apiFailures, action: 'deferred 1h, will retry' }, id);
@@ -339,7 +339,7 @@ export class RecoveryRun {
     this.setLamp(id, `retrying ${firstName(s)}'s payment quietly`);
     if (this.rzp.enabled) {
       try { const o: any = await this.rzp.createOrder(s.case, this.id, { purpose: 'silent_retry' }); s.razorpay.orderId = o.id; this.counters.realOrders++; this.log('razorpay', 'order_created', { id: o.id, amount: o.amount, receipt: o.receipt, purpose: 'silent_retry' }, id); }
-      catch (e: any) { this.log('razorpay', 'api_failed', { op: 'orders.create', error: e?.error?.description ?? e?.message ?? String(e), action: 'retry in 1h' }, id); this.schedule({ at: addHours(this.simNow, 1), type: 'silent_retry', caseId: id }); return; }
+      catch (e: any) { this.log('razorpay', 'api_failed', { op: 'orders.create', error: rzpErrorMessage(e), action: 'retry in 1h' }, id); this.schedule({ at: addHours(this.simNow, 1), type: 'silent_retry', caseId: id }); return; }
     }
     const o = this.world.onSilentRetry(s, this.simNow);
     this.log('agent', 'silent_retry_result', { success: o.kind === 'pays', note: o.note }, id);
@@ -396,7 +396,7 @@ export class RecoveryRun {
     const s = this.states.get(caseId); if (!s) return 'missing';
     if (s.status === 'recovered') return 'already';
     try { if (await this.settleFromRazorpay(s, 'verified on Razorpay')) return 'razorpay'; }
-    catch (e: any) { this.log('razorpay', 'api_failed', { op: 'orders.fetchPayments', error: e?.message ?? String(e) }, caseId); }
+    catch (e: any) { this.log('razorpay', 'api_failed', { op: 'orders.fetchPayments', error: rzpErrorMessage(e) }, caseId); }
     this.log('system', 'manual_override', { note: 'operator marked paid (demo control); not verified on Razorpay' }, caseId);
     this.recover(s, 'simulated', 'operator marked paid');
     return 'simulated';
@@ -415,7 +415,7 @@ export class RecoveryRun {
       else if (p.status !== 'captured') return { ok: false, reason: `payment status ${p.status}` };
       this.recover(s, 'razorpay', `paid on Razorpay checkout via ${p.method}`, paymentId);
       return { ok: true };
-    } catch (e: any) { this.log('razorpay', 'api_failed', { op: 'payments.fetch/capture', error: e?.message ?? String(e) }, caseId); return { ok: false, reason: 'razorpay api error' }; }
+    } catch (e: any) { this.log('razorpay', 'api_failed', { op: 'payments.fetch/capture', error: rzpErrorMessage(e) }, caseId); return { ok: false, reason: 'razorpay api error' }; }
   }
 
   /** Poll real Razorpay orders (server mode). Returns number newly recovered. */

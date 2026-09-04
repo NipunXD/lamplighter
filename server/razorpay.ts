@@ -6,6 +6,9 @@ import type { RevenueCase } from './types.js';
 
 export interface RzpEvents { onRetry?: (info: { op: string; attempt: number; error: string; waitMs: number }) => void; onCircuit?: (state: 'open' | 'closed') => void }
 
+/** Razorpay's SDK rejects with { statusCode, error: { code, description } }; plain errors have a message. */
+export function rzpErrorMessage(e: any): string { return e instanceof CircuitOpenError ? 'circuit open' : (e?.error?.description ?? (typeof e?.message === 'string' ? e.message : undefined) ?? JSON.stringify(e?.error ?? e)); }
+
 export class CircuitOpenError extends Error { constructor() { super('razorpay circuit open'); this.name = 'CircuitOpenError'; } }
 
 
