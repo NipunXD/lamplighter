@@ -49,6 +49,9 @@ Judges and merchants both need to see *why* the agent did something. The town ma
 - **Click a house** to read the Razorpay error, the diagnosis with confidence and source, every candidate action with the rules it passed or failed, each message actually sent, the pay page, and the outcome.
 - **The journal** is the audit log narrated in plain words, with actor chips (agent / policy / llm / razorpay / customer) and a chain-integrity badge.
 - **The ledger** is the money: recovered vs at-risk, cost per recovered rupee, the naive-retry comparison, real Razorpay orders and real Checkout payments.
+- **The week in review** (opens when the run ends, or from the ledger) turns the batch into analysis: cumulative recovery over time against the naive cron with quiet hours shaded, outcomes by kind and by root cause, agent-vs-cron small multiples, diagnosis accuracy and reliability.
+
+<p align="center"><img src="docs/screenshots/review.png" alt="The week in review" width="900"></p>
 
 ## Where the AI is, and how it is kept honest
 

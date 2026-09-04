@@ -2,7 +2,7 @@
 // 168 hourly ticks, emitting the same RunEvent / AuditEvent shapes (and actor/type names) as the server.
 import type {
   ActionType, AuditEvent, CaseKind, CaseState, Channel, Customer, FailureInfo, Lang, LamplighterState,
-  RevenueCase, RootCause, RunConfig, RunEvent, RunMetrics, RunSnapshot, Segment, Touch,
+  RevenueCase, RootCause, RunConfig, RunEvent, RunMetrics, RunSnapshot, Segment, TimelinePoint, Touch,
 } from '@shared/types';
 import type { Backend, CreateRunInput, Health, StreamStatus } from './api';
 import { addHours, firstName, fmtHours, fmtTime, hoursBetween, isQuietHours, istHour, nextIstHour, rupees, KIND_LABEL, CHANNEL_LABEL } from './format';
@@ -376,6 +376,9 @@ class MockRun {
   private lamplighter: LamplighterState = { activity: 'Lacing boots for the morning round', resting: false };
   private metrics: RunMetrics;
   private baseline?: RunMetrics;
+  /** One point per simulated hour, stamped like the server: after the hour's work, with the hour being entered. */
+  private readonly timeline: TimelinePoint[] = [];
+  private baselineTimeline?: TimelinePoint[];
   private paused = false;
   private resumeWaiters: Array<() => void> = [];
   private aborted = false;
@@ -402,7 +405,7 @@ class MockRun {
     this.truth = batch.truth;
     for (const c of batch.cases) { this.states.set(c.id, openState(c)); this.order.push(c.id); }
     this.metrics = this.computeMetrics();
-    if (cfg.withBaseline ?? true) this.baseline = this.naiveBaseline(batch);
+    if (cfg.withBaseline ?? true) { const b = this.naiveBaseline(batch); this.baseline = b.metrics; this.baselineTimeline = b.timeline; }
   }
 
   // --- plumbing ---
@@ -436,7 +439,7 @@ class MockRun {
     return {
       id: this.id, config: this.config, status: this.status, simStart: SIM_START, simNow: this.simNow, simEnd: this.timeAt(TICKS),
       cases: this.cases(), metrics: this.metrics, baseline: this.baseline, lamplighter: this.lamplighter,
-      timeline: [], baselineTimeline: [], auditCount: this.audit.length, auditTail: this.audit.slice(-200),
+      timeline: this.timeline.slice(), baselineTimeline: this.baselineTimeline?.slice(), auditCount: this.audit.length, auditTail: this.audit.slice(-200),
     };
   }
   auditFor(caseId: string) { return this.audit.filter((e) => e.caseId === caseId); }
@@ -494,6 +497,7 @@ class MockRun {
       if (visible && this.audit.length > before && !quiet && ++worked < due.length) await sleep(Math.min(240, this.tickDelay / 2));
     }
     this.metrics = this.computeMetrics();
+    this.timeline.push(this.timelinePoint(this.timeAt(t + 1)));
     this.emit({ type: 'tick', simNow: this.simNow, metrics: this.metrics, lamplighter: this.lamplighter });
   }
   private handle(item: Scheduled, st: CaseState, quiet: boolean) {
@@ -820,6 +824,18 @@ class MockRun {
   }
 
   // --- numbers ---
+  /** Same shape and semantics as the server's timelinePoint(): cumulative money/touches/complaints, current status counts. */
+  private timelinePoint(t: string): TimelinePoint {
+    let recoveredPaise = 0, recoveredCases = 0, touches = 0, complaints = 0, escalated = 0, closed = 0, awaiting = 0, scheduled = 0;
+    for (const s of this.cases()) {
+      if (s.status === 'recovered') { recoveredPaise += s.recoveredPaise; recoveredCases++; }
+      else if (s.status === 'escalated') escalated++; else if (s.status === 'closed') closed++;
+      else if (s.status === 'awaiting_customer') awaiting++; else if (s.status === 'scheduled') scheduled++;
+      touches += s.touches.filter((x) => x.action !== 'wait_and_retry').length;
+      if (s.complained) complaints++;
+    }
+    return { t, recoveredPaise, recoveredCases, touches, complaints, escalated, closed, awaiting, scheduled };
+  }
   private computeMetrics(): RunMetrics {
     const states = this.cases();
     const byKind = {} as RunMetrics['byKind'];
@@ -859,9 +875,13 @@ class MockRun {
       razorpayRetries: this.rzpRetries, diagnosis: { ...this.diag }, incentiveSpentPaise: incentive, deferredForQuietHours: this.deferred, simDays: 7,
     };
   }
-  /** What a cron job would have done: SMS link every 24h ×3, at whatever hour, ignoring DND and STOP. */
-  private naiveBaseline(batch: Batch): RunMetrics {
+  /** What a cron job would have done: SMS link every 24h ×3, at whatever hour, ignoring DND and STOP.
+   *  Also returns its hourly timeline (same conventions as the agent's) so the review can draw both curves. */
+  private naiveBaseline(batch: Batch): { metrics: RunMetrics; timeline: TimelinePoint[] } {
     const r = mulberry32(this.config.seed * 31 + 11);
+    // hour offsets from SIM_START; the money lands a little after the SMS (the customer's own delay), never in a new rng draw
+    interface Ev { touchAt: number[]; paidAt?: number; paidPaise: number; complaintsAt: number[]; closedAt?: number }
+    const events: Ev[] = [];
     const byKind = {} as RunMetrics['byKind'];
     for (const k of ['failed_payment', 'abandoned_checkout', 'failed_subscription', 'overdue_invoice'] as CaseKind[]) byKind[k] = { cases: 0, atRiskPaise: 0, recoveredPaise: 0, recoveredCases: 0 };
     let atRisk = 0, recovered = 0, recoveredCases = 0, complaints = 0, stops = 0, violations = 0, touches = 0;
@@ -873,9 +893,12 @@ class MockRun {
       byKind[c.kind].atRiskPaise += c.amountPaise;
       let stopped = false, paid = false;
       const startHour = between(r, 0, 23);
+      const ev: Ev = { touchAt: [], paidPaise: 0, complaintsAt: [] };
       for (let k = 1; k <= 3 && !paid; k++) {
         touches++;
-        const at = addHours(SIM_START, startHour + (k - 1) * 24);
+        const hour = startHour + (k - 1) * 24;
+        const at = addHours(SIM_START, hour);
+        ev.touchAt.push(hour);
         const quiet = isQuietHours(at);
         if (quiet) violations++;
         if (c.customer.dnd) violations++;
@@ -885,14 +908,29 @@ class MockRun {
         let p = h.payProb * h.affinity.sms * Math.pow(0.7, k - 1) * (quiet ? 0.6 : 1) * (c.customer.lang === 'hinglish' ? 0.9 : 1);
         if (h.archetype === 'temporary_funds' && h.fundsAt && at < h.fundsAt) p *= 0.2;
         if (stopped) p *= 0.1;
-        if (r() < p) { paid = true; recovered += c.amountPaise; recoveredCases++; byKind[c.kind].recoveredPaise += c.amountPaise; byKind[c.kind].recoveredCases++; break; }
+        if (r() < p) { paid = true; recovered += c.amountPaise; recoveredCases++; byKind[c.kind].recoveredPaise += c.amountPaise; byKind[c.kind].recoveredCases++; ev.paidAt = hour + Math.ceil(Math.min(h.delayHours, 24) / 2); ev.paidPaise = c.amountPaise; break; }
         if (!stopped && h.willStop && k >= 2 && r() < 0.8) { stopped = true; stops++; }
-        if (k > h.annoyance && r() < 0.5) complaints++;
-        if (quiet && r() < 0.25) complaints++;
+        if (k > h.annoyance && r() < 0.5) { complaints++; ev.complaintsAt.push(hour + 2); }
+        if (quiet && r() < 0.25) { complaints++; ev.complaintsAt.push(hour + 1); }
       }
+      if (!paid) ev.closedAt = ev.touchAt[ev.touchAt.length - 1] + 24; // the cron gives up a day after its last SMS
+      events.push(ev);
+    }
+    const timeline: TimelinePoint[] = [];
+    for (let t = 1; t <= TICKS; t++) {
+      // an event at hour h is worked at that hour and shows in the point stamped h+1 (server convention)
+      let recoveredPaise = 0, recoveredCases = 0, touchesN = 0, complaintsN = 0, closedN = 0, awaiting = 0;
+      for (const e of events) {
+        touchesN += e.touchAt.filter((h) => h < t).length;
+        complaintsN += e.complaintsAt.filter((h) => h < t).length;
+        if (e.paidAt !== undefined && e.paidAt < t) { recoveredPaise += e.paidPaise; recoveredCases++; }
+        else if (e.closedAt !== undefined && e.closedAt < t) closedN++;
+        else if (e.touchAt[0] < t) awaiting++;
+      }
+      timeline.push({ t: addHours(SIM_START, t), recoveredPaise, recoveredCases, touches: touchesN, complaints: complaintsN, escalated: 0, closed: closedN, awaiting, scheduled: 0 });
     }
     const cost = touches * TOUCH_COST.sms;
-    return {
+    const metrics: RunMetrics = {
       cases: batch.cases.length, atRiskPaise: atRisk, recoveredPaise: recovered, recoveredCases,
       recoveryRate: atRisk ? recovered / atRisk : 0, recoveryRateCases: batch.cases.length ? recoveredCases / batch.cases.length : 0,
       costPaise: cost, costPerRecoveredRupee: recovered ? cost / recovered : 0, touches, touchesPerCase: 3,
@@ -900,6 +938,7 @@ class MockRun {
       realRazorpayOrders: 0, realRazorpayPaid: 0, byKind, byRootCause: {}, llmCalls: 0, llmFallbacks: 0, llmAvgMs: 0, razorpayRetries: 0,
       diagnosis: { n: 0, rulesCorrect: 0, finalCorrect: 0, llmOverrides: 0, llmOverridesCorrect: 0 }, incentiveSpentPaise: 0, deferredForQuietHours: 0, simDays: 7,
     };
+    return { metrics, timeline };
   }
 }
 

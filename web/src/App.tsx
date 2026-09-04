@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AuditEvent, LamplighterState } from '@shared/types';
 import { createApiBackend, type Backend, type Health, type StreamStatus } from './api';
 import { createMockBackend, previewCases } from './mock';
+import { WeekInReview } from './review/WeekInReview';
+import './review/review.css';
 import { useRunStore } from './store';
 import { TopBar, type RunPhase, type UiConfig } from './components/TopBar';
 import { Town } from './components/Town';
@@ -28,6 +30,8 @@ export default function App() {
   const [starting, setStarting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [review, setReview] = useState(false);
+  const reviewParam = params.get('review') === '1';
   const unsub = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -110,6 +114,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   useEffect(() => { if (state.error) setNotice(`Run failed: ${state.error}`); }, [state.error]);
+  useEffect(() => { if (phase === 'done') { const t = window.setTimeout(() => setReview(true), 1500); return () => window.clearTimeout(t); } }, [phase]);
+  useEffect(() => { if (reviewParam && snapshot) setReview(true); }, [reviewParam, snapshot]);
 
   return (
     <div className="app">
@@ -118,9 +124,10 @@ export default function App() {
       <main className="main">
         <section className="town-panel">
           <Town cases={cases} simNow={simNow} lamplighter={lamplighter} empty={!snapshot} selectedId={selected} onSelect={setSelected} />
+          {review && snapshot && <div className="review-host"><WeekInReview snapshot={snapshot} onClose={() => setReview(false)} live={phase === 'running'} /></div>}
         </section>
         <aside className="side">
-          <Ledger metrics={snapshot?.metrics ?? null} baseline={snapshot?.baseline} previewAtRisk={previewAtRisk} previewCount={preview.length} phase={phase} />
+          <Ledger metrics={snapshot?.metrics ?? null} baseline={snapshot?.baseline} previewAtRisk={previewAtRisk} previewCount={preview.length} phase={phase} onReview={() => setReview(true)} />
           <Journal events={state.journal} casesById={casesById} auditCount={snapshot?.auditCount ?? 0} hasRun={!!runId} onOpenCase={setSelected} onVerify={() => (runId ? backend.verify(runId) : Promise.resolve({ ok: true }))} />
           <CaseDrawer st={selectedState} audit={caseAudit} open={!!selectedState} canAct={!!runId && phase === 'running'} onClose={() => setSelected(null)}
             onStop={() => (runId && selected ? backend.stopCase(runId, selected) : Promise.resolve({ ok: false }))}
