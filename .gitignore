@@ -16,3 +16,6 @@ build/
 data/runtime/
 *.sqlite
 *.sqlite-journal
+
+# rendered film + narration (large; upload the mp4, do not commit it)
+film/out/

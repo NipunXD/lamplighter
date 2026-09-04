@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lamplighter — the film</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#2b2230;--paper:#f6efe4;--sand:#e9d8bf;--terra:#c96a4a;--pink:#e58aa0;--amber:#ffb347;--ember:#ff7a1a;--sage:#8aa48b;--slate:#6b7fa3;--night1:#1b1638;--night2:#3b2a5a;--dusk1:#f2a65a;--dusk2:#d95c7a}
+html,body{margin:0;background:#000;overflow:hidden}
+.stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:radial-gradient(120% 90% at 50% 0%,var(--night2) 0%,var(--night1) 70%);font-family:Nunito,system-ui,sans-serif;color:var(--paper)}
+.layer{position:absolute;inset:0}
+#app{position:absolute;inset:0;width:1920px;height:1080px;border:0;background:#f6efe4;opacity:0;transition:opacity .9s ease}
+#app.on{opacity:1}
+.scene{position:absolute;inset:0;opacity:0;transition:opacity .8s ease;pointer-events:none}
+.scene.on{opacity:1}
+h1.word{font-family:Fraunces,serif;font-weight:700;font-size:150px;letter-spacing:-.01em;margin:0;font-variation-settings:'SOFT' 80,'opsz' 144}
+.sub{font-family:Fraunces,serif;font-weight:400;font-size:40px;opacity:.9;margin:14px 0 0}
+.chips{display:flex;gap:14px;margin-top:34px}
+.chip{border:1.5px solid rgba(246,239,228,.35);border-radius:999px;padding:10px 20px;font-weight:700;font-size:22px;letter-spacing:.02em}
+.chip.hot{background:var(--terra);border-color:var(--terra)}
+.fade{opacity:0;transform:translateY(18px);transition:opacity .9s ease,transform .9s ease}
+.fade.in{opacity:1;transform:none}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.caption{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);max-width:1500px;background:rgba(27,22,56,.86);color:var(--paper);font-size:30px;line-height:1.35;padding:18px 30px;border-radius:16px;backdrop-filter:blur(6px);box-shadow:0 20px 60px rgba(0,0,0,.45);opacity:0;transition:opacity .4s;text-align:center;font-weight:600}
+.caption.on{opacity:1}
+.caption .said{color:var(--paper)}.caption .next{color:rgba(246,239,228,.42)}
+.callout{position:absolute;background:var(--paper);color:var(--ink);font-weight:700;font-size:24px;padding:12px 18px;border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.35);opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s;border-left:8px solid var(--terra)}
+.callout.on{opacity:1;transform:none}
+#cursor{position:absolute;left:0;top:0;width:36px;height:44px;pointer-events:none;z-index:50;transition:transform .65s cubic-bezier(.3,.7,.2,1);transform:translate(-200px,-200px);filter:drop-shadow(0 4px 6px rgba(0,0,0,.45))}
+#cursor.click svg{animation:cl .32s ease}
+@keyframes cl{0%{transform:scale(1)}40%{transform:scale(.8)}100%{transform:scale(1)}}
+.ring{position:absolute;width:44px;height:44px;border:4px solid var(--amber);border-radius:50%;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(.4)}
+.ring.go{animation:ring .7s ease-out}
+@keyframes ring{0%{opacity:.9;transform:translate(-50%,-50%) scale(.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(2)}}
+/* problem cards */
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:26px;width:1700px;margin:0 auto}
+.card{background:var(--paper);color:var(--ink);border-radius:20px;padding:26px 24px;min-height:300px;box-shadow:0 24px 60px rgba(0,0,0,.4);opacity:0;transform:translateY(30px) scale(.97);transition:opacity .6s ease,transform .6s ease}
+.card.in{opacity:1;transform:none}
+.card h3{font-family:Fraunces,serif;font-size:32px;margin:14px 0 8px;font-weight:600}
+.card code{display:block;font-size:17px;background:#efe3cf;padding:10px;border-radius:10px;margin-top:10px;white-space:pre-wrap;color:#5a4550}
+.card .amt{font-family:Fraunces,serif;font-size:36px;margin-top:12px;color:var(--terra)}
+.counter{font-family:Fraunces,serif;font-size:120px;font-weight:700;margin-top:40px;color:var(--amber);font-variant-numeric:tabular-nums}
+.small{font-size:30px;color:rgba(246,239,228,.85)}
+/* flow */
+.flow{position:absolute;left:1180px;top:120px;width:680px;background:rgba(246,239,228,.96);color:var(--ink);border-radius:22px;padding:28px 30px;box-shadow:0 30px 80px rgba(0,0,0,.5);opacity:0;transform:translateX(30px);transition:opacity .6s,transform .6s}
+.flow.on{opacity:1;transform:none}
+.flow h3{font-family:Fraunces,serif;font-size:34px;margin:0 0 14px}
+.step{display:flex;gap:16px;align-items:center;padding:12px 0;border-top:1px solid rgba(43,34,48,.1);font-size:24px;font-weight:600;opacity:.35;transition:opacity .4s}
+.step.on{opacity:1}
+.step i{width:18px;height:18px;border-radius:50%;background:#9a8f96;flex:none}
+.step.on i{background:var(--amber);box-shadow:0 0 18px 4px rgba(255,179,71,.6)}
+/* review overlay: seeds */
+.seeds{position:absolute;right:40px;top:120px;width:760px;background:rgba(246,239,228,.97);color:var(--ink);border-radius:22px;padding:26px 30px;box-shadow:0 30px 80px rgba(0,0,0,.5);opacity:0;transform:translateX(40px);transition:opacity .6s,transform .6s}
+.seeds.on{opacity:1;transform:none}
+.seeds h3{font-family:Fraunces,serif;font-size:34px;margin:0}
+.seeds p{margin:6px 0 16px;font-size:20px;color:#6b5c65}
+.seedrow{display:grid;grid-template-columns:70px 1fr 150px;gap:10px;align-items:center;font-size:20px;margin:6px 0}
+.seedrow .bars{display:grid;gap:3px}
+.seedrow .bars i{display:block;height:11px;border-radius:3px;width:0;transition:width 1.2s ease}
+.seedrow .bars i.a{background:#e0962c}.seedrow .bars i.c{background:#9a8f96}
+.seedrow b{font-variant-numeric:tabular-nums;text-align:right}
+.legend{display:flex;gap:18px;font-size:18px;margin-bottom:10px}.legend i{display:inline-block;width:14px;height:6px;border-radius:2px;margin-right:6px;vertical-align:middle}
+/* terminal */
+.term{width:1500px;margin:0 auto;background:#120f24;border:1px solid rgba(246,239,228,.12);border-radius:18px;padding:26px 30px;font:22px/1.55 "SF Mono",Menlo,monospace;color:#e8e0d2;box-shadow:0 30px 80px rgba(0,0,0,.6);min-height:520px}
+.term .l{opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;white-space:pre}
+.term .l.on{opacity:1;transform:none}
+.term .a-razorpay{color:#8fb6ff}.term .a-llm{color:#c9a3ff}.term .a-agent{color:#ffb347}.term .a-system{color:#9ad1a0}
+.badges{display:flex;gap:18px;justify-content:center;margin-top:30px}
+.badge{background:var(--paper);color:var(--ink);border-radius:14px;padding:14px 22px;font-weight:800;font-size:26px;opacity:0;transform:scale(.9);transition:opacity .5s,transform .5s}
+.badge.on{opacity:1;transform:none}
+.badge.ok{border-left:8px solid var(--sage)}
+/* architecture strip */
+.arch{display:flex;gap:18px;align-items:center;justify-content:center;margin-top:40px}
+.node{background:var(--paper);color:var(--ink);border-radius:16px;padding:18px 22px;font-weight:800;font-size:24px;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;text-align:center}
+.node small{display:block;font-weight:600;font-size:16px;color:#6b5c65;margin-top:4px}
+.node.on{opacity:1;transform:none}
+.arrow{width:34px;height:4px;background:rgba(246,239,228,.5);border-radius:2px}
+</style></head>
+<body>
+<div class="stage" id="stage">
+  <iframe id="app" src="about:blank" title="Lamplighter app"></iframe>
+
+  <section class="scene" id="s-title"><div class="center">
+    <svg width="200" height="240" viewBox="0 0 100 120" id="lantern"><defs><radialGradient id="lg"><stop offset="0" stop-color="#ffd27a" stop-opacity=".95"/><stop offset=".4" stop-color="#ffb347" stop-opacity=".5"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>
+      <circle id="lglow" cx="50" cy="52" r="46" fill="url(#lg)" opacity="0"/>
+      <rect x="47" y="8" width="6" height="14" fill="#3f3238"/><rect x="34" y="22" width="32" height="46" rx="4" fill="#2e2532"/><rect x="39" y="27" width="22" height="36" rx="2" id="lglass" fill="#3b3040"/>
+      <path id="lflame" d="M50 36 c-6 8 -6 15 0 20 c6 -5 6 -12 0 -20z" fill="#ffb347" opacity="0"/><rect x="30" y="68" width="40" height="6" rx="2" fill="#3f3238"/><rect x="46" y="74" width="8" height="40" fill="#3f3238"/></svg>
+    <h1 class="word fade" id="t-word">Lamplighter</h1>
+    <p class="sub fade" id="t-sub">A bounded AI revenue-recovery agent for Razorpay merchants, rendered as a cozy town</p>
+    <div class="chips fade" id="t-chips"><span class="chip hot">Razorpay AI Buildathon</span><span class="chip">Track 3 · AI Revenue Recovery</span><span class="chip">by Nipun Arora</span></div>
+  </div></section>
+
+  <section class="scene" id="s-problem"><div class="center" style="justify-content:flex-start;padding-top:90px">
+    <p class="sub fade" id="p-head" style="font-size:52px;margin-bottom:40px">Saanjh &amp; Co., Jaipur · how a small brand loses money</p>
+    <div class="cards" id="p-cards"></div>
+    <div class="counter fade" id="p-counter">₹0</div>
+    <p class="small fade" id="p-note">at risk in one fortnight · hand-chasing is slow · a cron annoys customers and breaks rules</p>
+  </div></section>
+
+  <section class="scene" id="s-flow"><div class="flow" id="flow"><h3>The loop closes for real</h3>
+    <div class="step" data-i="0"><i></i>Message links to a self-hosted pay page</div>
+    <div class="step" data-i="1"><i></i>Backed by a real Razorpay test-mode Order</div>
+    <div class="step" data-i="2"><i></i>Customer pays through Razorpay Checkout</div>
+    <div class="step" data-i="3"><i></i>Server verifies the HMAC-SHA256 signature</div>
+    <div class="step" data-i="4"><i></i>Captures the payment, polls as a fallback</div>
+    <div class="step" data-i="5"><i></i>The lantern lights · audit: signature_verified</div>
+  </div></section>
+
+  <section class="scene" id="s-seeds"><div class="seeds" id="seeds"><h3>Across ten seeded worlds</h3><p>recovered per 120-case batch · rules-only · same world for both</p>
+    <div class="legend"><span><i style="background:#e0962c"></i>Lamplighter</span><span><i style="background:#9a8f96"></i>naive cron</span></div>
+    <div id="seedrows"></div>
+    <p id="seedsum" style="margin-top:16px;font-weight:700;color:#2b2230"></p>
+  </div></section>
+
+  <section class="scene" id="s-reliability"><div class="center" style="justify-content:flex-start;padding-top:80px">
+    <p class="sub fade in" style="font-size:52px;margin-bottom:30px">Failure is exercised, not promised</p>
+    <div class="term" id="term"></div>
+    <div class="badges"><span class="badge ok" id="b1">25 tests passing</span><span class="badge ok" id="b2">audit chain verified</span><span class="badge ok" id="b3">CI: batch with no external services</span></div>
+  </div></section>
+
+  <section class="scene" id="s-close"><div class="center">
+    <h1 class="word fade" id="c-word" style="font-size:120px">Lamplighter</h1>
+    <p class="sub fade" id="c-sub" style="font-size:44px">Bounded. Explainable. Measured.</p>
+    <div class="arch" id="arch">
+      <div class="node">diagnose<small>rules → local model</small></div><div class="arrow"></div>
+      <div class="node">policy<small>enumerate + gate</small></div><div class="arrow"></div>
+      <div class="node">choose<small>model among approved</small></div><div class="arrow"></div>
+      <div class="node">compose<small>template + validator</small></div><div class="arrow"></div>
+      <div class="node">execute<small>Razorpay orders + checkout</small></div><div class="arrow"></div>
+      <div class="node">audit<small>hash-chained</small></div>
+    </div>
+    <div class="chips fade" id="c-chips"><span class="chip">github.com/NipunXD/lamplighter</span><span class="chip hot">Nipun Arora</span></div>
+  </div></section>
+
+  <div id="callouts" class="layer" style="pointer-events:none"></div>
+  <div class="caption" id="caption"></div>
+  <div class="ring" id="ring"></div>
+  <div id="cursor"><svg width="36" height="44" viewBox="0 0 36 44"><path d="M2 2 L2 34 L11 26 L17 41 L23 38 L17 24 L29 24 Z" fill="#fff" stroke="#2b2230" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
+</div>
+<script src="film.js"></script>
+</body></html>

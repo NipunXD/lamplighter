@@ -113,6 +113,10 @@ flowchart LR
 
 The full list is in [docs/SUBMISSION.md](docs/SUBMISSION.md). The short version: Razorpay's test-mode Payment Link cap forced a better design (Orders + hosted checkout with signature verification); burst 429s needed a serialised, backed-off client and a circuit the engine waits out; a 4B model needed a validator and a prompt with a verbatim must-contain list before its Hinglish drafts were usable; and making "money recovered" honest meant a hidden-state simulator, the same world for the baseline, and a report that labels every number.
 
+## The pitch film is code too
+
+`film/` renders the 5-minute pitch from the live app: Playwright drives a scripted stage page in Chrome, macOS speech narrates it, and ffmpeg muxes it. See [film/README.md](film/README.md).
+
 ## Repo map
 
 ```
@@ -120,7 +124,8 @@ server/   engine, policy, diagnose, compose, simulator, generator, razorpay, llm
 web/      the town (Vite + React + SVG)
 tests/    vitest
 docs/     architecture, API contract, metrics, pitch shot list, submission text
-scripts/  small probes used while building (compose, Razorpay quotas)
+scripts/  eval harness and small probes used while building
+film/     the pitch video, generated from code (Playwright + say + ffmpeg)
 ```
 
 MIT © 2026 Nipun Arora
