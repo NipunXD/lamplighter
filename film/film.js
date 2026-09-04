@@ -18,7 +18,7 @@ FILM.callout = (x, y, text, ms, w) => {
   $('#callouts').appendChild(el); requestAnimationFrame(() => el.classList.add('on'));
   setTimeout(() => { el.classList.remove('on'); setTimeout(() => el.remove(), 600); }, ms);
 };
-const captionText = (t) => t.replace(/A\.I\./g, 'AI').replace(/U\.P\.I\./g, 'UPI').replace(/H\.M\.A\.C\./g, 'HMAC').replace(/D\.N\.D\./g, 'DND').replace(/U thirty, debit has been failed/g, 'U30: DEBIT HAS BEEN FAILED').replace(/nine a\.m\./g, '09:00').replace(/Saanjh and Co\./g, 'Saanjh & Co').replace(/a cafe's/g, 'a café\u2019s');
+const captionText = (t) => t.replace(/A\.I\./g, 'AI').replace(/U\.P\.I\./g, 'UPI').replace(/H\.M\.A\.C\./g, 'HMAC').replace(/D\.N\.D\./g, 'DND').replace(/U thirty, debit has been failed/g, 'U30: DEBIT HAS BEEN FAILED').replace(/nine a\.m\./g, '09:00.').replace(/Saanjh and Co\./g, 'Saanjh & Co').replace(/a cafe's/g, 'a café\u2019s');
 FILM.caption = (raw, durMs) => {
   const text = captionText(raw);
   const box = $('#caption'); const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
@@ -55,7 +55,7 @@ const SCENES = {
     at(start, () => { $('#p-counter').classList.add('in'); const t0 = performance.now(); const tick = () => { const p = Math.min(1, (performance.now() - t0) / len); const e = 1 - Math.pow(1 - p, 3); $('#p-counter').textContent = fmt(target * e); if (p < 1) requestAnimationFrame(tick); }; tick(); });
     at(start + 2500, () => $('#p-note').classList.add('in'));
   },
-  town(d) { FILM.scene(null); FILM.app(); at(1500, () => FILM.callout(700, 150, 'one house per customer · one dark lantern per payment at risk', d - 3000)); },
+  town(d) { FILM.scene(null); FILM.app(); at(1500, () => FILM.callout(60, 110, 'one house per customer · one dark lantern per payment at risk', d - 3000, 720)); },
   light(d) {
     at(6000, () => FILM.callout(1250, 540, '1 · diagnose: rules first, the local model reads raw bank strings', 9000, 620));
     at(15500, () => FILM.callout(1250, 540, '2 · policy: every action, every rule, all in the audit log', 8000, 620));
@@ -63,10 +63,10 @@ const SCENES = {
     at(31500, () => FILM.callout(1250, 300, 'every outreach = a real Razorpay test-mode order', d - 33000, 620));
   },
   drawer(d) {
-    at(3500, () => FILM.callout(700, 150, 'the Razorpay error, with the raw bank string', 6500));
-    at(10500, () => FILM.callout(700, 150, 'diagnosis · confidence · source (rules / local model)', 7000));
-    at(18000, () => FILM.callout(700, 150, 'every candidate action, with the rules it failed as chips', 8000));
-    at(27000, () => FILM.callout(700, 150, 'the message that went out · a real order behind the link', d - 28500));
+    at(3500, () => FILM.callout(60, 110, 'the Razorpay error, with the raw bank string', 6500, 620));
+    at(10500, () => FILM.callout(60, 110, 'diagnosis · confidence · source (rules / local model)', 7000, 620));
+    at(18000, () => FILM.callout(60, 110, 'every candidate action, with the rules it failed as chips', 8000, 620));
+    at(27000, () => FILM.callout(60, 110, 'the message that went out · a real order behind the link', d - 28500, 620));
   },
   pay(d) {
     FILM.scene('flow'); at(600, () => $('#flow').classList.add('on'));
@@ -95,7 +95,8 @@ const SCENES = {
     FILM.scene('reliability'); FILM.appOff();
     const term = $('#term'); term.innerHTML = '';
     const lines = FILM.data.chaos.length ? FILM.data.chaos : [{ actor: 'razorpay', type: 'api_retry', ts: '', note: 'injected: 503 Service Unavailable (chaos)', hash: 'a1b2c3' }];
-    lines.forEach((l, i) => { const el = document.createElement('div'); el.className = 'l a-' + l.actor; el.textContent = `${(l.ts || '').slice(5, 16).replace('T', ' ')}  ${l.actor.padEnd(9)} ${l.type.padEnd(19)} ${l.note}  #${l.hash}`; term.appendChild(el); at(700 + i * 900, () => el.classList.add('on')); });
+    lines.forEach((l, i) => { const el = document.createElement('div'); el.className = 'l a-' + l.actor; const note = l.note || (l.type === 'order_created' ? 'test-mode order created after the retries' : l.type === 'signature_verified' ? 'HMAC ok' : '');
+      el.textContent = `${(l.ts || '').slice(5, 16).replace('T', ' ')}  ${l.actor.padEnd(9)} ${l.type.padEnd(19)} ${note.padEnd(46)}  #${l.hash}`; term.appendChild(el); at(700 + i * 900, () => el.classList.add('on')); });
     at(15500, () => $('#b1').classList.add('on')); at(17500, () => $('#b2').classList.add('on')); at(19500, () => $('#b3').classList.add('on'));
   },
   close(d) {

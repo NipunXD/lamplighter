@@ -36,7 +36,7 @@ const t0 = Date.now(); const lead = (t0 - ctxCreated) / 1000;
 await page.evaluate((tl) => window.FILM.start(tl), timeline);
 const until = async (id, off = 0) => { const target = t0 + (scene(id).start + off) * 1000; const w = target - Date.now(); if (w > 0) await page.waitForTimeout(w); };
 const app = page.frameLocator('#app');
-const cursorClick = async (loc) => { const b = await loc.boundingBox(); if (!b) return false; const x = b.x + b.width / 2, y = b.y + b.height / 2; await page.evaluate(([x, y]) => window.FILM.cursor(x, y, true), [x, y]); await page.waitForTimeout(750); await page.mouse.click(x, y); return true; };
+const cursorClick = async (loc) => { const b = await loc.boundingBox(); if (!b) return false; const x = b.x + b.width / 2, y = b.y + b.height / 2; await page.evaluate(([x, y]) => window.FILM.cursor(x, y, true), [x, y]); await page.waitForTimeout(750); await page.mouse.click(x, y); setTimeout(() => page.evaluate(() => window.FILM.hideCursor()).catch(() => {}), 1800); return true; };
 
 // ---- light: start the live run
 await until('town', 0.2); await page.evaluate(() => window.FILM.app());
