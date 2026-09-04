@@ -1,0 +1,45 @@
+{
+  "name": "lamplighter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lamplighter — an AI revenue-recovery agent for Razorpay merchants, rendered as a cozy town where every dark lantern is money slipping away.",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c yellow,cyan \"pnpm dev:server\" \"pnpm dev:web\"",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "start": "tsx server/index.ts",
+    "batch": "tsx server/batch.ts",
+    "seed": "tsx server/data/generate.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "razorpay": "^2.9.8",
+    "seedrandom": "^3.0.5",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@types/seedrandom": "^3.0.8",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  }
+}

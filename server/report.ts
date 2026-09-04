@@ -1,0 +1,57 @@
+import type { RunMetrics, RunSnapshot } from './types.js';
+import { rupees } from './time.js';
+
+const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+const row = (cells: (string | number)[]) => `| ${cells.join(' | ')} |`;
+
+export function reportMarkdown(snap: RunSnapshot, chain: { ok: boolean; brokenAt?: number }): string {
+  const m = snap.metrics; const b = snap.baseline; const cfg = snap.config;
+  const L: string[] = [];
+  L.push(`# Lamplighter run report — \`${snap.id}\``);
+  L.push('');
+  L.push(`Seed ${cfg.seed} · ${m.cases} cases · ${cfg.simDays}-day window · local LLM ${cfg.llm ? 'on' : 'off'} · Razorpay test-mode orders ${cfg.razorpay ? 'on' : 'off'} · chaos ${cfg.chaos} · audit chain ${chain.ok ? `✓ ${snap.auditCount} events` : `✗ broken at ${chain.brokenAt}`}`);
+  L.push('');
+  L.push('## Money');
+  L.push(row(['metric', 'Lamplighter agent', b ? 'naive retry baseline' : '—']));
+  L.push(row(['---', '---', '---']));
+  const cmp = (label: string, f: (x: RunMetrics) => string) => L.push(row([label, f(m), b ? f(b) : '—']));
+  cmp('at risk', (x) => rupees(x.atRiskPaise));
+  cmp('recovered', (x) => rupees(x.recoveredPaise));
+  cmp('recovery rate (value)', (x) => pct(x.recoveryRate));
+  cmp('recovery rate (cases)', (x) => `${x.recoveredCases}/${x.cases} (${pct(x.recoveryRateCases)})`);
+  cmp('spend (channel + incentives)', (x) => rupees(x.costPaise));
+  cmp('cost per recovered rupee', (x) => `₹${x.costPerRecoveredRupee.toFixed(3)}`);
+  cmp('customer touches', (x) => `${x.touches} (${x.touchesPerCase.toFixed(2)}/case)`);
+  cmp('complaints', (x) => String(x.complaints));
+  cmp('STOP requests', (x) => String(x.stopRequests));
+  cmp('policy violations', (x) => String(x.policyViolations));
+  cmp('escalated to humans', (x) => String(x.escalated));
+  cmp('closed by stopping rule', (x) => String(x.closed));
+  L.push('');
+  L.push('## By kind');
+  L.push(row(['kind', 'cases', 'at risk', 'recovered', 'rate']));
+  L.push(row(['---', '---', '---', '---', '---']));
+  for (const [k, v] of Object.entries(m.byKind)) L.push(row([k, v.cases, rupees(v.atRiskPaise), rupees(v.recoveredPaise), v.atRiskPaise ? pct(v.recoveredPaise / v.atRiskPaise) : '—']));
+  L.push('');
+  L.push('## By diagnosed root cause');
+  L.push(row(['root cause', 'cases', 'recovered', 'recovered ₹']));
+  L.push(row(['---', '---', '---', '---']));
+  for (const [k, v] of Object.entries(m.byRootCause).sort((a, b) => b[1].cases - a[1].cases)) L.push(row([k, v.cases, v.recoveredCases, rupees(v.recoveredPaise)]));
+  L.push('');
+  L.push('## Diagnosis accuracy (against the generator\'s hidden ground truth)');
+  const d = m.diagnosis;
+  L.push(`- rules only: ${d.rulesCorrect}/${d.n} (${d.n ? pct(d.rulesCorrect / d.n) : '—'})`);
+  L.push(`- rules + local LLM on the long tail: ${d.finalCorrect}/${d.n} (${d.n ? pct(d.finalCorrect / d.n) : '—'})`);
+  L.push(`- LLM overrides: ${d.llmOverrides}, of which correct ${d.llmOverridesCorrect}`);
+  L.push('');
+  L.push('## Reliability');
+  L.push(`- LLM calls ${m.llmCalls}, fallbacks to deterministic path ${m.llmFallbacks}, avg latency ${m.llmAvgMs} ms`);
+  L.push(`- Razorpay test-mode orders created ${m.realRazorpayOrders}, verified paid on Razorpay ${m.realRazorpayPaid}, API retries ${m.razorpayRetries}`);
+  L.push(`- actions deferred for quiet hours ${m.deferredForQuietHours}, incentive spent ${rupees(m.incentiveSpentPaise)}`);
+  L.push('');
+  L.push('## Honesty notes');
+  L.push('- Customer behaviour is simulated by a seeded model with hidden state the agent never reads; "recovered" in the batch means the simulated customer paid inside the window. Payments that would land after the window are not counted.');
+  L.push('- Every outreach is backed by a real Razorpay **test-mode** Order and a self-hosted checkout page; no notifications are sent because the customers are synthetic. A payment completed through Razorpay Checkout is verified by signature, captured, and recorded separately as `razorpay`.');
+  L.push('- The baseline is a plain cron: SMS link at once and every 24h, three times, ignoring quiet hours, DND, hard declines and STOP. Its violations are counted, not prevented.');
+  return L.join('\n') + '\n';
+}
