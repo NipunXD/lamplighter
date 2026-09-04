@@ -419,3 +419,10 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
   .rise { animation: fade-hold 2s linear forwards; }
 }
 @keyframes fade-hold { 0% { opacity: 0; } 10% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- week-in-review entry ---------- */
+.eyebrow-right { display: inline-flex; align-items: center; gap: 10px; }
+.review-btn { font: 700 11px/1 var(--font-body); letter-spacing: 0.02em; color: var(--terracotta, #c96a4a); background: rgba(201, 106, 74, 0.1); border: 1px solid rgba(201, 106, 74, 0.35); border-radius: 999px; padding: 5px 10px; cursor: pointer; text-transform: none; }
+.review-btn:hover { background: rgba(201, 106, 74, 0.18); }
+.review-host { position: absolute; inset: 0; z-index: 6; display: flex; }
+.town-panel { position: relative; }

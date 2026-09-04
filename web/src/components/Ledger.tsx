@@ -4,14 +4,14 @@ import type { RunMetrics } from '@shared/types';
 import { KIND_COLOR, KIND_LABEL, KIND_ORDER, pct, rupees } from '../format';
 import type { RunPhase } from './TopBar';
 
-interface Props { metrics: RunMetrics | null; baseline?: RunMetrics; previewAtRisk: number; previewCount: number; phase: RunPhase }
+interface Props { metrics: RunMetrics | null; baseline?: RunMetrics; previewAtRisk: number; previewCount: number; phase: RunPhase; onReview?: () => void }
 
 function costPerRupee(x: number): string {
   if (!x) return '—';
   return `₹${x.toFixed(x < 0.01 ? 3 : 2)}`;
 }
 
-export function Ledger({ metrics: m, baseline: b, previewAtRisk, previewCount, phase }: Props) {
+export function Ledger({ metrics: m, baseline: b, previewAtRisk, previewCount, phase, onReview }: Props) {
   const atRisk = m?.atRiskPaise ?? previewAtRisk;
   const recovered = m?.recoveredPaise ?? 0;
   const rate = atRisk ? recovered / atRisk : 0;
@@ -20,7 +20,13 @@ export function Ledger({ metrics: m, baseline: b, previewAtRisk, previewCount, p
   );
   return (
     <section className="card ledger" aria-label="Ledger">
-      <div className="eyebrow"><span>Ledger · {m?.cases ?? previewCount} lanterns</span><span className={phase === 'running' ? 'live' : ''}>{phase === 'idle' ? 'before the run' : phase === 'running' ? 'live' : phase === 'done' ? 'final' : 'failed'}</span></div>
+      <div className="eyebrow">
+        <span>Ledger · {m?.cases ?? previewCount} lanterns</span>
+        <span className="eyebrow-right">
+          {onReview && m && <button type="button" className="review-btn" onClick={onReview} title="Charts: recovery over time, where the money went, root causes, agent vs naive retry">Week in review →</button>}
+          <span className={phase === 'running' ? 'live' : ''}>{phase === 'idle' ? 'before the run' : phase === 'running' ? 'live' : phase === 'done' ? 'final' : 'failed'}</span>
+        </span>
+      </div>
       <div className="big">
         <span className="big-num">{rupees(recovered)}</span>
         <span className="big-of">recovered of {rupees(atRisk)} at risk</span>

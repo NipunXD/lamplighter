@@ -23,6 +23,9 @@ Shared TypeScript types live in `server/types.ts` and are imported by the web ap
 | GET | `/api/runs/:id/report.md` | metrics report | markdown |
 | GET | `/api/runs/:id/verify` | recompute the hash chain | `{ ok, brokenAt? }` |
 
+## Timelines
+`RunSnapshot.timeline` is one `TimelinePoint` per simulated hour (`t, recoveredPaise, recoveredCases, touches, complaints, escalated, closed, awaiting, scheduled`) and `baselineTimeline` the same for the naive-retry run on the same world. Clients can also accumulate from `tick` events, but the snapshot is the source of truth when attaching late.
+
 ## Defaults
 `seed=7, size=60, llm=true, mode='agent', razorpay=true, simDays=7, chaos=0, tickDelayMs=200, withBaseline=true`.
 A tick is one simulated hour. A 7-day run is 168 ticks.

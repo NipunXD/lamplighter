@@ -45,7 +45,20 @@ export function applyBatch(prev: RunState, evs: RunEvent[]): RunState {
         for (const e of ev.snapshot.auditTail) addAudit(e);
         break;
       case 'tick':
-        if (snapshot) snapshot = { ...snapshot, simNow: ev.simNow, metrics: ev.metrics, lamplighter: ev.lamplighter };
+        if (snapshot) {
+          // keep the per-hour timeline growing on the client; the server snapshot already carries history up to attach time
+          const tl = snapshot.timeline ?? [];
+          const last = tl[tl.length - 1];
+          let timeline = tl;
+          if (!last || last.t < ev.simNow) {
+            const src = cases ?? snapshot.cases;
+            let awaiting = 0, scheduled = 0;
+            for (const c of src) { if (c.status === 'awaiting_customer') awaiting++; else if (c.status === 'scheduled') scheduled++; }
+            const m = ev.metrics;
+            timeline = [...tl, { t: ev.simNow, recoveredPaise: m.recoveredPaise, recoveredCases: m.recoveredCases, touches: m.touches, complaints: m.complaints, escalated: m.escalated, closed: m.closed, awaiting, scheduled }];
+          }
+          snapshot = { ...snapshot, simNow: ev.simNow, metrics: ev.metrics, lamplighter: ev.lamplighter, timeline };
+        }
         break;
       case 'case':
         if (snapshot) {
