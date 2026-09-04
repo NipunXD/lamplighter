@@ -4,7 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-import { RecoveryRun, runBaseline } from './engine.js';
+import { RecoveryRun, runBaselineWithTimeline } from './engine.js';
 import { LocalLLM } from './llm.js';
 import { RazorpayClient } from './razorpay.js';
 import { reportMarkdown } from './report.js';
@@ -44,7 +44,7 @@ app.post('/api/runs', async (req, res) => {
   const run = new RecoveryRun(cfg, { llm, rzp });
   runs.set(run.id, run);
   if (body.withBaseline !== false && run.config.mode === 'agent') {
-    try { run.baseline = await runBaseline(run.config); } catch (e) { console.error('baseline failed', e); }
+    try { const b = await runBaselineWithTimeline(run.config); run.baseline = b.metrics; run.baselineTimeline = b.timeline; } catch (e) { console.error('baseline failed', e); }
   }
   run.start().catch((e) => console.error(`run ${run.id} failed:`, e?.message ?? e));
   res.json({ id: run.id });
@@ -123,6 +123,14 @@ app.post('/api/pay/verify', async (req, res) => {
   if (typeof razorpay_order_id !== 'string' || typeof razorpay_payment_id !== 'string' || typeof razorpay_signature !== 'string') return res.status(400).json({ ok: false, reason: 'missing fields' });
   res.json(await run.verifyCheckout(String(caseId ?? ''), razorpay_order_id, razorpay_payment_id, razorpay_signature));
 });
+
+// optional feature modules (policy lab, escalation desk…) mount their own routes when present
+export interface RouteContext { runs: Map<string, RecoveryRun>; env: typeof env; makeDeps: (cfg: { chaos?: number }) => { llm: LocalLLM; rzp: RazorpayClient } }
+const routeCtx: RouteContext = { runs, env, makeDeps: (cfg) => ({ llm: new LocalLLM({ baseUrl: env.llmBase, model: env.llmModel, chaos: cfg.chaos }), rzp: new RazorpayClient({ keyId: env.keyId, keySecret: env.keySecret, chaos: cfg.chaos }) }) };
+for (const spec of ['./whatif.js', './inbox.js']) {
+  try { const mod: any = await import(/* @vite-ignore */ spec); if (typeof mod.mountRoutes === 'function') { mod.mountRoutes(app, routeCtx); console.log(`mounted ${spec}`); } }
+  catch (e: any) { if (!/Cannot find module|ERR_MODULE_NOT_FOUND/.test(String(e?.message ?? e))) console.error(`route module ${spec} failed:`, e?.message ?? e); }
+}
 
 // poll real Razorpay orders so a payment made on the pay page relights its lantern even without the handler
 setInterval(async () => { for (const r of [...runs.values()].slice(-3)) { try { await r.checkRealPayments(); } catch { /* ignore */ } } }, 30_000);

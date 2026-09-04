@@ -4,6 +4,8 @@ import type { ActionType, CaseState, Channel, Diagnosis, PlannedAction, PolicyCh
 import { addHours, hoursBetween, istHour, nextIstHour } from './time.js';
 
 export interface PolicyConfig {
+  quietHoursEnabled: boolean;
+  respectDnd: boolean;
   quietStartHour: number; // no customer contact from this IST hour...
   quietEndHour: number; // ...until this IST hour
   maxTouches: number; // per case, per run window
@@ -18,6 +20,8 @@ export interface PolicyConfig {
 }
 
 export const DEFAULT_POLICY: PolicyConfig = {
+  quietHoursEnabled: true,
+  respectDnd: true,
   quietStartHour: 21,
   quietEndHour: 9,
   maxTouches: 3,
@@ -49,6 +53,7 @@ export interface Candidate {
 const CUSTOMER_FACING: ActionType[] = ['send_payment_link', 'voice_call', 'offer_incentive', 'new_mandate_link'];
 
 export function isQuietHours(iso: string, p: PolicyConfig): boolean {
+  if (!p.quietHoursEnabled) return false;
   const h = istHour(iso);
   return h >= p.quietStartHour || h < p.quietEndHour;
 }
@@ -118,14 +123,15 @@ export function evaluateCandidates(ctx: PolicyContext): Candidate[] {
     if (customerFacing) {
       checks.push({ rule: 'do_not_contact', passed: !state.doNotContact, note: state.doNotContact ? 'customer asked us to stop' : undefined });
       checks.push({ rule: 'dispute_only_escalate', passed: cause !== 'dispute_risk', note: cause === 'dispute_risk' ? 'possible dispute: humans only' : undefined });
-      checks.push({ rule: 'max_touches', passed: touchIndex < p.maxTouches, note: `${touchIndex}/${p.maxTouches} used` });
+      const touchCap = p.maxTouches + (state.humanExtraTouches ?? 0);
+      checks.push({ rule: 'max_touches', passed: touchIndex < touchCap, note: `${touchIndex}/${touchCap} used${state.humanExtraTouches ? ` (${state.humanExtraTouches} granted by a human)` : ''}` });
       const gapOk = !lastTouch || hoursBetween(lastTouch.at, now) >= p.minGapHours;
       checks.push({ rule: 'min_gap_between_touches', passed: gapOk, note: lastTouch ? `${hoursBetween(lastTouch.at, now).toFixed(1)}h since last touch (min ${p.minGapHours}h)` : 'first touch' });
       if (channel) {
         const sameBefore = touches.filter((t) => t.action === type && t.channel === channel).length;
         checks.push({ rule: 'no_repeat_same_touch', passed: sameBefore < 2, note: sameBefore >= 2 ? `already sent ${type} via ${channel} twice` : undefined });
         checks.push({ rule: 'channel_opt_in', passed: !!c.customer.channels[channel], note: c.customer.channels[channel] ? undefined : `${channel} not opted in` });
-        const dndBlocked = c.customer.dnd && (channel === 'sms' || channel === 'voice');
+        const dndBlocked = p.respectDnd && c.customer.dnd && (channel === 'sms' || channel === 'voice');
         checks.push({ rule: 'dnd_registry', passed: !dndBlocked, note: dndBlocked ? `customer on DND: no ${channel}` : undefined });
       }
       const quiet = isQuietHours(now, p);
@@ -158,7 +164,7 @@ export function evaluateCandidates(ctx: PolicyContext): Candidate[] {
     { rule: 'silent_retry_applicability', passed: retryOk, note: retryOk ? undefined : `${cause} needs the customer, not a retry` },
     { rule: 'max_silent_retries', passed: retryCount < 2, note: `${retryCount}/2 used` },
     { rule: 'has_payment_instrument', passed: c.kind !== 'abandoned_checkout' && c.kind !== 'overdue_invoice', note: 'retry needs a saved instrument or mandate' },
-    { rule: 'attempt_budget', passed: retryCount + touchIndex < p.maxTouches + 1, note: `${retryCount + touchIndex} attempts so far` },
+    { rule: 'attempt_budget', passed: retryCount + touchIndex < p.maxTouches + 1 + (state.humanExtraTouches ?? 0), note: `${retryCount + touchIndex} attempts so far` },
   ]);
 
   // 2. payment link over each channel
@@ -179,10 +185,10 @@ export function evaluateCandidates(ctx: PolicyContext): Candidate[] {
     push({ type: 'offer_incentive', channel: bestChannel, lang: c.customer.lang, incentivePct: p.incentiveMaxPct, reason: `${p.incentiveMaxPct}% incentive via ${bestChannel}` }, [
       { rule: 'incentive_once', passed: !state.incentiveUsed },
       { rule: 'incentive_min_amount', passed: c.amountPaise >= p.incentiveMinAmountPaise, note: `min ${(p.incentiveMinAmountPaise / 100)} INR` },
-      { rule: 'incentive_cause_fit', passed: incentiveCauseOk, note: incentiveCauseOk ? undefined : `no discount for ${cause} (not an intent problem)` },
+      { rule: 'incentive_cause_fit', passed: incentiveCauseOk || !!state.humanIncentiveApproved, note: state.humanIncentiveApproved ? 'approved by a human' : incentiveCauseOk ? undefined : `no discount for ${cause} (not an intent problem)` },
       { rule: 'incentive_budget', passed: ctx.budgetLeftPaise >= Math.round((c.amountPaise * p.incentiveMaxPct) / 100), note: `budget left ${(ctx.budgetLeftPaise / 100).toFixed(0)} INR` },
       { rule: 'no_incentive_b2b', passed: c.customer.segment !== 'b2b' },
-      { rule: 'incentive_not_first_touch', passed: touchIndex >= 1, note: 'try a plain nudge before spending margin' },
+      { rule: 'incentive_not_first_touch', passed: touchIndex >= 1 || !!state.humanIncentiveApproved, note: state.humanIncentiveApproved ? 'approved by a human' : 'try a plain nudge before spending margin' },
     ]);
   }
 
@@ -194,7 +200,7 @@ export function evaluateCandidates(ctx: PolicyContext): Candidate[] {
   }
 
   // 6. escalate to a human: only for the right reasons
-  const exhausted = touchIndex >= p.maxTouches || state.doNotContact;
+  const exhausted = touchIndex >= p.maxTouches + (state.humanExtraTouches ?? 0) || state.doNotContact;
   const escalateReason = cause === 'dispute_risk' ? 'possible dispute'
     : c.kind === 'overdue_invoice' && daysOverdueNow > p.b2bEscalateAfterDays ? 'B2B receivable past threshold'
     : cause === 'card_hard_decline' && c.customer.segment === 'vip' ? 'VIP with a hard decline'

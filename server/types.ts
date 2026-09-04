@@ -1,3 +1,5 @@
+import type { PolicyConfig } from './policy.js';
+
 // Domain types for Lamplighter. Everything the agent can see lives in RevenueCase/Customer.
 // HiddenProfile exists only inside the simulator and is never passed to the agent or the LLM.
 
@@ -141,6 +143,9 @@ export interface CaseState {
   razorpay: { orderId?: string; recoveryOrderId?: string; payUrl?: string; paymentId?: string };
   lastError?: string;
   apiFailures?: number;
+  humanExtraTouches?: number; // granted by a human on the escalation desk
+  humanIncentiveApproved?: boolean;
+  humanNotes?: string[];
 }
 
 export interface AuditEvent {
@@ -148,7 +153,7 @@ export interface AuditEvent {
   ts: string; // wall clock
   simTs: string; // simulated clock
   caseId?: string;
-  actor: 'agent' | 'policy' | 'simulator' | 'razorpay' | 'llm' | 'system' | 'customer';
+  actor: 'agent' | 'policy' | 'simulator' | 'razorpay' | 'llm' | 'system' | 'customer' | 'human';
   type: string;
   payload: Record<string, unknown>;
   prevHash: string;
@@ -164,6 +169,7 @@ export interface RunConfig {
   simDays: number;
   chaos: number; // 0..1 probability of injected Razorpay/LLM failures
   tickDelayMs: number; // pacing for live UI runs (0 for headless)
+  policy?: Partial<PolicyConfig>; // overrides for what-if runs (Policy Lab)
 }
 
 export interface RunMetrics {
@@ -198,6 +204,19 @@ export interface RunMetrics {
 
 export interface LamplighterState { caseId?: string; activity: string; resting: boolean }
 
+/** One point per simulated hour, for the week-in-review charts. */
+export interface TimelinePoint {
+  t: string; // sim ISO
+  recoveredPaise: number;
+  recoveredCases: number;
+  touches: number;
+  complaints: number;
+  escalated: number;
+  closed: number;
+  awaiting: number; // cases waiting on a customer at this hour
+  scheduled: number; // cases deliberately waiting (quiet hours / timed retry)
+}
+
 export interface RunSnapshot {
   id: string;
   config: RunConfig;
@@ -209,6 +228,8 @@ export interface RunSnapshot {
   metrics: RunMetrics;
   baseline?: RunMetrics;
   lamplighter: LamplighterState;
+  timeline: TimelinePoint[];
+  baselineTimeline?: TimelinePoint[];
   auditCount: number;
   auditTail: AuditEvent[]; // last 200 events
   error?: string;

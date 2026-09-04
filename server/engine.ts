@@ -10,7 +10,7 @@ import { DEFAULT_POLICY, evaluateCandidates, fallbackChoice, matchCandidate, bas
 import { diagnose } from './diagnose.js';
 import { composeMessage, LINK, templateMessage } from './compose.js';
 import { addHours, fmtIST, hoursBetween, rupees } from './time.js';
-import type { AuditEvent, CaseKind, CaseState, LamplighterState, PlannedAction, RootCause, RunConfig, RunEvent, RunMetrics, RunSnapshot, Touch } from './types.js';
+import type { AuditEvent, CaseKind, CaseState, LamplighterState, PlannedAction, RootCause, RunConfig, RunEvent, RunMetrics, RunSnapshot, TimelinePoint, Touch } from './types.js';
 
 type Scheduled = { at: string; type: 'agent_due' | 'silent_retry' | 'customer_pays' | 'customer_stop' | 'customer_complains' | 'promise_to_pay'; caseId: string; token?: number; payload?: Record<string, unknown> };
 
@@ -34,6 +34,8 @@ export class RecoveryRun {
   status: RunSnapshot['status'] = 'running';
   error?: string;
   baseline?: RunMetrics;
+  baselineTimeline?: TimelinePoint[];
+  readonly timeline: TimelinePoint[] = [];
   lamplighter: LamplighterState = { activity: 'waiting for dusk', resting: false };
   private world: CustomerWorld;
   private truth: Map<string, RootCause>;
@@ -56,6 +58,7 @@ export class RecoveryRun {
     this.llm = this.config.llm ? deps.llm : new LocalLLM({});
     this.rzp = this.config.razorpay ? deps.rzp : new RazorpayClient({});
     this.rng = seedrandom(`run-${this.config.seed}-${this.config.mode}`);
+    this.policy = { ...DEFAULT_POLICY, ...(this.config.policy ?? {}), touchCostPaise: { ...DEFAULT_POLICY.touchCostPaise, ...(this.config.policy?.touchCostPaise ?? {}) } };
     const batch = generateBatch(this.config.seed, this.config.size);
     this.world = new CustomerWorld(batch.hidden, this.config.seed);
     this.truth = batch.truth;
@@ -77,6 +80,7 @@ export class RecoveryRun {
   private touchCase(s: CaseState) { this.emit({ type: 'case', state: s }); }
   private setLamp(caseId: string | undefined, activity: string) { this.lamplighter = { caseId, activity, resting: isQuietHours(this.simNow, this.policy) }; this.emit({ type: 'lamplighter', lamplighter: this.lamplighter }); }
   pause() { this.paused = true; } resume() { this.paused = false; }
+  get policyConfig(): PolicyConfig { return this.policy; }
   setTickDelay(ms: number) { (this.config as RunConfig).tickDelayMs = Math.max(0, Math.min(5000, ms | 0)); }
 
   // ---------- scheduling ----------
@@ -98,6 +102,7 @@ export class RecoveryRun {
         while (this.paused) await sleep(100);
         await this.processDue();
         this.simNow = addHours(this.simNow, 1);
+        this.timeline.push(this.timelinePoint());
         const quiet = isQuietHours(this.simNow, this.policy);
         this.lamplighter = { caseId: this.lamplighter.caseId, resting: quiet, activity: quiet ? 'quiet hours: resting by the well' : (this.lamplighter.activity ?? '') };
         this.emit({ type: 'tick', simNow: this.simNow, metrics: this.metrics(), lamplighter: this.lamplighter });
@@ -446,7 +451,51 @@ export class RecoveryRun {
     return s;
   }
 
+  // ---------- human-in-the-loop (escalation desk) ----------
+  /** A human closes the case: no further automation, reason recorded. */
+  humanClose(caseId: string, reason: string): CaseState | undefined {
+    const s = this.states.get(caseId); if (!s || s.status === 'recovered') return s;
+    s.status = 'closed'; s.closeReason = `human: ${reason}`; (s.humanNotes ??= []).push(reason);
+    this.bump(caseId);
+    this.log('human', 'closed', { reason }, caseId); this.touchCase(s);
+    return s;
+  }
+  /** A human confirms the money arrived outside the loop (bank transfer, cash, offline UPI). */
+  humanResolve(caseId: string, note: string): CaseState | undefined {
+    const s = this.states.get(caseId); if (!s || s.status === 'recovered') return s;
+    (s.humanNotes ??= []).push(note);
+    this.log('human', 'resolved', { note }, caseId);
+    this.recover(s, 'simulated', `human marked resolved: ${note}`);
+    return s;
+  }
+  /** A human hands the case back to the agent with more room: extra touches and/or an approved incentive. */
+  humanReopen(caseId: string, opts: { extraTouches?: number; allowIncentive?: boolean; note?: string }): CaseState | undefined {
+    const s = this.states.get(caseId); if (!s || s.status === 'recovered') return s;
+    if (s.doNotContact) { this.log('human', 'reopen_refused', { reason: 'customer said STOP; a human cannot override that' }, caseId); return s; }
+    s.humanExtraTouches = (s.humanExtraTouches ?? 0) + Math.max(0, Math.min(3, opts.extraTouches ?? 1));
+    if (opts.allowIncentive) s.humanIncentiveApproved = true;
+    if (opts.note) (s.humanNotes ??= []).push(opts.note);
+    s.status = 'open'; s.escalationReason = undefined; s.closeReason = undefined;
+    const at = this.status === 'done' ? this.simNow : nextContactWindow(this.simNow, this.policy);
+    s.nextActionAt = at;
+    this.log('human', 'reopened', { extraTouches: opts.extraTouches ?? 1, allowIncentive: !!opts.allowIncentive, note: opts.note, resumesAt: at }, caseId);
+    if (this.status === 'done') { void this.act(caseId); } // the week is over: act once, now
+    else this.schedule({ at, type: 'agent_due', caseId, token: this.bump(caseId) });
+    this.touchCase(s);
+    return s;
+  }
+
   // ---------- metrics & snapshot ----------
+  private timelinePoint(): TimelinePoint {
+    let recoveredPaise = 0, recoveredCases = 0, touches = 0, escalated = 0, closed = 0, awaiting = 0, scheduled = 0;
+    for (const s of this.states.values()) {
+      if (s.status === 'recovered') { recoveredPaise += s.recoveredPaise; recoveredCases++; }
+      else if (s.status === 'escalated') escalated++; else if (s.status === 'closed') closed++;
+      else if (s.status === 'awaiting_customer') awaiting++; else if (s.status === 'scheduled') scheduled++;
+      touches += s.touches.filter((t) => t.action !== 'wait_and_retry').length;
+    }
+    return { t: this.simNow, recoveredPaise, recoveredCases, touches, complaints: this.counters.complaints, escalated, closed, awaiting, scheduled };
+  }
   private atRisk() { let t = 0; for (const s of this.states.values()) t += s.case.amountPaise; return t; }
 
   metrics(): RunMetrics {
@@ -477,13 +526,18 @@ export class RecoveryRun {
   }
 
   snapshot(full = true): RunSnapshot {
-    return { id: this.id, config: this.config, status: this.status, simStart: this.simStart, simNow: this.simNow, simEnd: this.simEnd, cases: full ? [...this.states.values()] : [], metrics: this.metrics(), baseline: this.baseline, lamplighter: this.lamplighter, auditCount: this.audit.events.length, auditTail: full ? this.audit.events.slice(-200) : [], error: this.error };
+    return { id: this.id, config: this.config, status: this.status, simStart: this.simStart, simNow: this.simNow, simEnd: this.simEnd, cases: full ? [...this.states.values()] : [], metrics: this.metrics(), baseline: this.baseline, lamplighter: this.lamplighter, timeline: this.timeline, baselineTimeline: this.baselineTimeline, auditCount: this.audit.events.length, auditTail: full ? this.audit.events.slice(-200) : [], error: this.error };
   }
   caseAudit(caseId: string) { return this.audit.events.filter((e) => e.caseId === caseId); }
 }
 
 /** Headless baseline with the same seed/size/window, for an honest comparison. */
 export async function runBaseline(cfg: RunConfig): Promise<RunMetrics> {
+  const { metrics } = await runBaselineWithTimeline(cfg);
+  return metrics;
+}
+export async function runBaselineWithTimeline(cfg: RunConfig): Promise<{ metrics: RunMetrics; timeline: TimelinePoint[] }> {
   const run = new RecoveryRun({ ...cfg, mode: 'baseline', llm: false, razorpay: false, tickDelayMs: 0, chaos: 0 }, { llm: new LocalLLM({}), rzp: new RazorpayClient({}) });
-  return run.start();
+  const metrics = await run.start();
+  return { metrics, timeline: run.timeline };
 }

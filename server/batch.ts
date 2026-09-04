@@ -2,7 +2,7 @@
 // The report window defaults to 14 days because B2B receivables pay on promise dates a week or more out.
 import 'dotenv/config';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { RecoveryRun, runBaseline } from './engine.js';
+import { RecoveryRun, runBaselineWithTimeline } from './engine.js';
 import { LocalLLM } from './llm.js';
 import { RazorpayClient } from './razorpay.js';
 import { reportMarkdown } from './report.js';
@@ -18,7 +18,7 @@ let lastDay = -1;
 run.onEvent((e) => { if (e.type === 'tick') { const day = Math.floor((new Date(e.simNow).getTime() - new Date(run.simStart).getTime()) / 86_400_000); if (day !== lastDay) { lastDay = day; process.stderr.write(`day ${day}: recovered ${rupees(e.metrics.recoveredPaise)} of ${rupees(e.metrics.atRiskPaise)} (${e.metrics.recoveredCases}/${e.metrics.cases}) llm calls ${e.metrics.llmCalls}\n`); } } });
 const t0 = Date.now();
 const m = await run.start();
-if (on(args.baseline, true)) run.baseline = await runBaseline(run.config);
+if (on(args.baseline, true)) { const b = await runBaselineWithTimeline(run.config); run.baseline = b.metrics; run.baselineTimeline = b.timeline; }
 const snap = run.snapshot();
 mkdirSync('data/runtime', { recursive: true });
 writeFileSync(`data/runtime/${run.id}.json`, JSON.stringify({ ...snap, audit: run.audit.events }, null, 1));
