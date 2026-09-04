@@ -426,3 +426,6 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .review-btn:hover { background: rgba(201, 106, 74, 0.18); }
 .review-host { position: absolute; inset: 0; z-index: 6; display: flex; }
 .town-panel { position: relative; }
+
+.town-legend .mute-btn { pointer-events: auto; cursor: pointer; border: 0; border-radius: 999px; width: 24px; height: 24px; padding: 0; font-size: 12px; line-height: 24px; background: rgba(43, 34, 48, 0.42); color: #f6efe4; backdrop-filter: blur(4px); }
+.town-legend .mute-btn:hover { background: rgba(43, 34, 48, 0.6); }

@@ -6,6 +6,7 @@ import { layoutTown, scenery, skyMix, TOWN_W } from '../layout';
 import { istHour, KIND_COLOR, KIND_LABEL, KIND_ORDER, ROOT_CAUSE_LABEL, rupees, SEGMENT_LABEL, STATUS_LABEL } from '../format';
 import { House, HouseLights } from './House';
 import { Lamplighter } from './Lamplighter';
+import { chime, isMuted, onMuteChange, setMuted } from '../audio';
 
 interface Props {
   cases: CaseState[];
@@ -65,6 +66,7 @@ export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }
     }
     prevStatus.current = next;
     if (!fresh.length) return;
+    chime();
     setSparkles((s) => [...s, ...fresh]);
     setLift(true);
     window.setTimeout(() => { if (mounted.current) setSparkles((s) => s.filter((x) => !fresh.includes(x))); }, 2300);
@@ -102,6 +104,8 @@ export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }
   }, []);
 
   // --- hover tooltip + click via event delegation (150 houses, one handler) ---
+  const [muted, setMutedState] = useState(isMuted());
+  useEffect(() => onMuteChange(setMutedState), []);
   const [tip, setTip] = useState<Tip | null>(null);
   const locate = useCallback((id: string): Tip | null => {
     const sp = layout.spots[indexById.get(id) ?? -1];
@@ -295,8 +299,9 @@ export function Town({ cases, simNow, lamplighter, empty, selectedId, onSelect }
         </g>
       </svg>
 
-      <div className="town-legend" aria-hidden="true">
-        {KIND_ORDER.map((k) => <span key={k}><i style={{ background: KIND_COLOR[k] }} />{KIND_LABEL[k]}</span>)}
+      <div className="town-legend">
+        {KIND_ORDER.map((k) => <span key={k} aria-hidden="true"><i style={{ background: KIND_COLOR[k] }} />{KIND_LABEL[k]}</span>)}
+        <button type="button" className="mute-btn" aria-pressed={muted} aria-label={muted ? 'Unmute sounds' : 'Mute sounds'} title={muted ? 'Unmute the lantern chime' : 'Mute the lantern chime'} onClick={() => setMuted(!muted)}>{muted ? '🔕' : '🔔'}</button>
       </div>
       {empty && (
         <div className="town-caption">
