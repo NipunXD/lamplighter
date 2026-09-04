@@ -1,3 +1,4 @@
+const langName = (l?: string) => (l === 'hinglish' ? 'Hinglish' : l === 'en' ? 'English' : l ?? '');
 // Turns an AuditEvent into one plain-English journal line. Payload fields are read defensively and
 // follow the shapes server/engine.ts logs, so a slightly different backend still reads sensibly.
 import type { AuditEvent, CaseState } from '@shared/types';
@@ -85,15 +86,15 @@ export function narrate(e: AuditEvent, cs?: CaseState): Narration {
           const until = str(p, 'until') ?? str(p, 'deferUntil');
           return { text: `Deferred ${actionLabel(str(p, 'action') ?? 'the touch', str(p, 'channel'), { lower: true })} to ${until ? fmtDateTime(until) : 'the next contact window'} — ${str(p, 'reason') ?? 'quiet hours'}` };
         }
-        case 'message_composed': return { text: `Composed a ${str(p, 'lang') ?? ''} ${chan(str(p, 'channel')) ?? ''} message${str(p, 'source') === 'llm' ? ' with the local LLM' : str(p, 'source') === 'template' || str(p, 'source') === 'rules' ? ' from the template' : ''}`.replace(/\s+/g, ' ') };
+        case 'message_composed': return { text: `Composed the ${langName(str(p, 'lang'))} ${chan(str(p, 'channel')) ?? ''} message${str(p, 'source') === 'llm' ? ' with the local LLM' : str(p, 'source') === 'template' || str(p, 'source') === 'rules' ? ' from the template' : ''}`.replace(/\s+/g, ' ') };
         case 'message_sent': {
           const cost = num(p, 'costPaise');
           const viol = Array.isArray(p.violations) ? (p.violations as unknown[]).length : 0;
-          return { text: `${chan(str(p, 'channel')) ?? 'Message'} ${nudge(str(p, 'action'))} sent to ${name}${str(p, 'lang') ? ` in ${str(p, 'lang')}` : ''}${num(p, 'incentivePct') ? ` with ${num(p, 'incentivePct')}% off` : ''}${cost !== undefined ? ` · cost ${rupees(cost, { decimals: true })}` : ''}${viol ? ` · ${viol} policy violation${viol > 1 ? 's' : ''}` : ''}` };
+          return { text: `${chan(str(p, 'channel')) ?? 'Message'} ${nudge(str(p, 'action'))} sent to ${name}${str(p, 'lang') ? ` in ${langName(str(p, 'lang'))}` : ''}${num(p, 'incentivePct') ? ` with ${num(p, 'incentivePct')}% off` : ''}${cost !== undefined ? ` · cost ${rupees(cost, { decimals: true })}` : ''}${viol ? ` · ${viol} policy violation${viol > 1 ? 's' : ''}` : ''}` };
         }
         case 'call_placed': {
           const cost = num(p, 'costPaise');
-          return { text: `Called ${name}${str(p, 'lang') ? ` with a ${str(p, 'lang')} script` : ''}${cost !== undefined ? ` · cost ${rupees(cost, { decimals: true })}` : ''}` };
+          return { text: `Called ${name}${str(p, 'lang') ? ` with a ${langName(str(p, 'lang'))} script` : ''}${cost !== undefined ? ` · cost ${rupees(cost, { decimals: true })}` : ''}` };
         }
         case 'silent_retry_scheduled': {
           const at = str(p, 'at') ?? str(p, 'retryAt');
@@ -146,7 +147,7 @@ export function narrate(e: AuditEvent, cs?: CaseState): Narration {
           const fb = str(p, 'fallbackWouldBe');
           return { text: `LLM chose ${actionLabel(action, channel, { lower: true })}${took(ms)}${reason ? ` — ${reason}` : ''}${fb && fb !== action ? ` (rules would have picked ${actionLabel(fb, undefined, { lower: true })})` : ''}` };
         }
-        case 'llm_compose': return { text: `LLM wrote the ${str(p, 'lang') ?? ''} ${chan(str(p, 'channel')) ?? ''} message${num(p, 'chars') ? ` (${num(p, 'chars')} chars)` : ''}${took(ms)}`.replace(/\s+/g, ' ') };
+        case 'llm_compose': return { text: `LLM wrote the ${langName(str(p, 'lang'))} ${chan(str(p, 'channel')) ?? ''} message${num(p, 'chars') ? ` (${num(p, 'chars')} chars)` : ''}${took(ms)}`.replace(/\s+/g, ' ') };
         case 'llm_fallback': {
           const stage = str(p, 'stage');
           const used = str(p, 'used') ?? (stage === 'diagnosis' ? 'rules' : stage === 'compose' ? 'template' : 'rules');

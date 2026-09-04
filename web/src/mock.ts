@@ -908,7 +908,7 @@ export function createMockBackend(): Backend {
   const get = (id: string) => { const r = runs.get(id); if (!r) throw new Error(`mock: no run ${id}`); return r; };
   return {
     kind: 'mock',
-    health: async () => ({ ok: true, llm: { enabled: true, model: 'qwen2.5:7b · mock' }, razorpay: { enabled: true, keyId: 'rzp_test_MockKey000000' } } satisfies Health),
+    health: async () => ({ ok: true, llm: { enabled: true, model: 'qwen3-4b · mock' }, razorpay: { enabled: true, keyId: 'rzp_test_MockKey000000' } } satisfies Health),
     createRun: async (cfg) => {
       for (const r of runs.values()) r.abort();
       runs.clear();

@@ -70,6 +70,7 @@ app.post('/api/runs/:id/cases/:caseId/stop', async (req, res) => { const r = get
 app.post('/api/runs/:id/cases/:caseId/paid', async (req, res) => { const r = getRun(req, res); if (!r) return; const via = await r.markPaid(P(req.params.caseId)); res.json({ ok: via !== 'missing', via }); });
 app.post('/api/runs/:id/pause', (req, res) => { const r = getRun(req, res); if (!r) return; r.pause(); res.json({ ok: true }); });
 app.post('/api/runs/:id/resume', (req, res) => { const r = getRun(req, res); if (!r) return; r.resume(); res.json({ ok: true }); });
+app.post('/api/runs/:id/speed', (req, res) => { const r = getRun(req, res); if (!r) return; r.setTickDelay(Number(req.body?.tickDelayMs ?? 200)); res.json({ ok: true, tickDelayMs: r.config.tickDelayMs }); });
 app.get('/api/runs/:id/audit.jsonl', (req, res) => { const r = getRun(req, res); if (!r) return; res.type('text/plain').send(r.audit.toJSONL()); });
 app.get('/api/runs/:id/verify', (req, res) => { const r = getRun(req, res); if (!r) return; res.json(r.audit.verify()); });
 app.get('/api/runs/:id/report.md', (req, res) => { const r = getRun(req, res); if (!r) return; res.type('text/markdown').send(reportMarkdown(r.snapshot(true), r.audit.verify())); });

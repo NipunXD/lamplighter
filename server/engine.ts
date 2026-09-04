@@ -77,6 +77,7 @@ export class RecoveryRun {
   private touchCase(s: CaseState) { this.emit({ type: 'case', state: s }); }
   private setLamp(caseId: string | undefined, activity: string) { this.lamplighter = { caseId, activity, resting: isQuietHours(this.simNow, this.policy) }; this.emit({ type: 'lamplighter', lamplighter: this.lamplighter }); }
   pause() { this.paused = true; } resume() { this.paused = false; }
+  setTickDelay(ms: number) { (this.config as RunConfig).tickDelayMs = Math.max(0, Math.min(5000, ms | 0)); }
 
   // ---------- scheduling ----------
   private schedule(ev: Scheduled) { this.queue.push(ev); this.queue.sort((a, b) => a.at < b.at ? -1 : a.at > b.at ? 1 : 0); }

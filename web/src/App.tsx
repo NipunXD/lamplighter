@@ -16,6 +16,7 @@ const IDLE_LAMP: LamplighterState = { activity: '', resting: true };
 export default function App() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const mock = params.get('mock') === '1';
+  const autostart = params.get('autostart') === '1';
   const backend = useMemo<Backend>(() => (mock ? createMockBackend() : createApiBackend()), [mock]);
   const { state, ingest, reset } = useRunStore();
   const [health, setHealth] = useState<Health | null>(null);
@@ -53,6 +54,8 @@ export default function App() {
     const id = params.get('run');
     if (id && !mock) attach(id);
   }, [params, mock, attach]);
+  const autoStarted = useRef(false);
+  useEffect(() => { if (autostart && !autoStarted.current && !runId && !starting) { autoStarted.current = true; void start(); } });
 
   const start = async () => {
     setStarting(true);
