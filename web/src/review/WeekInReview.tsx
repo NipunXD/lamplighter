@@ -12,9 +12,10 @@ const istHourOf = (iso: string) => { const d = new Date(iso); return ((d.getUTCH
 
 function Timeline({ agent, cron, simStart }: { agent: TimelinePoint[]; cron?: TimelinePoint[]; simStart: string }) {
   const W = 640, H = 220, L = 56, R = 16, T = 14, B = 34;
-  const n = Math.max(agent.length, cron?.length ?? 0);
+  const n = agent.length;
   if (n < 2) return <p className="rv-empty">The timeline fills in as the week runs.</p>;
-  const maxY = Math.max(1, ...agent.map((p) => p.recoveredPaise), ...(cron ?? []).map((p) => p.recoveredPaise));
+  const cronPts = cron && cron.length >= 2 ? cron.slice(0, n) : undefined;
+  const maxY = Math.max(1, ...agent.map((p) => p.recoveredPaise), ...(cronPts ?? []).map((p) => p.recoveredPaise));
   const x = (i: number) => L + (i / (n - 1)) * (W - L - R);
   const y = (v: number) => T + (1 - v / maxY) * (H - T - B);
   const path = (pts: TimelinePoint[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.recoveredPaise).toFixed(1)}`).join(' ');
@@ -28,11 +29,11 @@ function Timeline({ agent, cron, simStart }: { agent: TimelinePoint[]; cron?: Ti
       {bands.map(([a, b], i) => <rect key={i} className="rv-quiet" x={x(a)} y={T} width={Math.max(1, x(b) - x(a))} height={H - T - B} fill="#2b2230" opacity="0.06" />)}
       {ticks.map((v, i) => <g key={i}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="#2b2230" opacity="0.12" /><text x={L - 6} y={y(v) + 4} textAnchor="end" fontSize="10" fill="#7a6a72">{rupees(v)}</text></g>)}
       {days.map((p, i) => <text key={i} x={x(i * 24)} y={H - 12} textAnchor="middle" fontSize="10" fill="#7a6a72">{dayLabel(p.t)}</text>)}
-      {cron && <path d={path(cron)} fill="none" stroke="#9a8f96" strokeWidth="2" strokeLinejoin="round" />}
+      {cronPts && <path d={path(cronPts)} fill="none" stroke="#9a8f96" strokeWidth="2" strokeLinejoin="round" />}
       <path d={path(agent)} fill="none" stroke="#e0962c" strokeWidth="2.4" strokeLinejoin="round" />
       <g className="rv-legend" fontSize="11" fill="#2b2230">
         <rect x={L} y={T - 8} width="14" height="3" fill="#e0962c" /><text x={L + 20} y={T - 4}>Lamplighter</text>
-        {cron && <><rect x={L + 110} y={T - 8} width="14" height="3" fill="#9a8f96" /><text x={L + 130} y={T - 4}>naive cron</text></>}
+        {cronPts && <><rect x={L + 110} y={T - 8} width="14" height="3" fill="#9a8f96" /><text x={L + 130} y={T - 4}>naive cron</text></>}
         <rect x={L + 220} y={T - 9} width="10" height="6" fill="#2b2230" opacity="0.12" /><text x={L + 236} y={T - 4}>quiet hours</text>
       </g>
       <text x={x(n - 1) - 4} y={y(agent[agent.length - 1].recoveredPaise) - 6} textAnchor="end" fontSize="11" fontWeight="700" fill="#2b2230">{rupees(agent[agent.length - 1].recoveredPaise)}</text>
