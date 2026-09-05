@@ -3,7 +3,8 @@
 **A bounded AI revenue-recovery agent for Razorpay merchants, rendered as a cozy dusk-time town.**
 Razorpay AI Buildathon 2026 · Track 3: AI Revenue Recovery
 
-<p align="center"><img src="docs/screenshots/town.png" alt="The Lamplighter town at dusk" width="900"></p>
+<p align="center"><a href="https://youtu.be/E3N7ZuVRwz4"><img src="docs/screenshots/town.png" alt="The Lamplighter town at dusk" width="900"></a></p>
+<p align="center"><a href="https://youtu.be/E3N7ZuVRwz4"><b>▶ Watch the 5-minute pitch</b></a> · <a href="docs/ARCHITECTURE.md">Architecture</a> · <a href="docs/METRICS.md">Metrics</a> · <a href="docs/EVAL.md">Ten-seed evaluation</a> · <a href="docs/POLICY.md">The policy</a></p>
 
 Saanjh & Co. is a small tea and candle studio in Jaipur that sells on Razorpay. Every week money slips away in undramatic ways:
 a UPI collect times out, a card hits its daily limit, a bank is down for ten minutes, an AutoPay mandate gets paused, a café's wholesale invoice drifts past due.

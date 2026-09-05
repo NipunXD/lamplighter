@@ -1,5 +1,7 @@
 # The pitch film, generated from code
 
+The rendered result: https://youtu.be/E3N7ZuVRwz4
+
 `film/` renders the 5-minute pitch video without a screen recorder or an editor:
 
 - `index.html` + `film.js` — a 1920×1080 stage with title cards, an animated SVG problem board, captions, callouts, a synthetic cursor, and the live app embedded in an iframe.

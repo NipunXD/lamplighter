@@ -13,4 +13,4 @@ Merchants lose revenue in small, undramatic ways: a UPI collect request times ou
 https://github.com/NipunXD/lamplighter
 
 ## 5-min Pitch Video Link
-(upload `film/out/lamplighter-pitch.mp4` unlisted to YouTube or Loom, paste the link)
+https://youtu.be/E3N7ZuVRwz4
