@@ -21,10 +21,7 @@ PORT=8801 API_PORT=8801 pnpm dev      # 8787 is occupied by ~/razorpay (pid 2855
 Open http://localhost:5173 → Light the lamps. Pay a lantern: click a house → "checkout page" → Razorpay test netbanking → Success.
 
 ## Submit (deadline 2026-09-05)
-1. Create the public repo and push (GitHub CLI is logged in as NipunXD):
-   ```bash
-   gh repo create lamplighter --public --source . --remote origin --push --description "Bounded AI revenue-recovery agent for Razorpay merchants, rendered as a cozy town"
-   ```
+1. ✅ Pushed: https://github.com/NipunXD/lamplighter (public, 25 commits, CI on every push).
 2. The 5-minute video is already rendered from code: `film/out/lamplighter-pitch.mp4` (1920×1080, narrated). Watch it once, then upload it unlisted to YouTube (or Loom) and paste the link in the form. To re-render after changes, see `film/README.md`. If you prefer your own voice, `docs/PITCH.md` is the shot list.
 3. Fill the form with `docs/SUBMISSION.md` text + repo URL + video URL: https://forms.gle/d9r2gvxp8cmoZhon9 (Track 3, one-shot).
 4. Rotate the Razorpay test key after the buildathon; it was pasted in chat.
