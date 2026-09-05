@@ -7,7 +7,7 @@ const API = 'http://127.0.0.1:8801', APP = 'http://localhost:5173', FILM = 'http
 const RUN_A = process.env.RUN_A, RUN_B = process.env.RUN_B;
 if (!RUN_A || !RUN_B) throw new Error('set RUN_A (finished 60-case run) and RUN_B (run paused at night)');
 const FF = execFileSync('python3', ['-c', 'import imageio_ffmpeg as f; print(f.get_ffmpeg_exe())']).toString().trim();
-const pads = { title: 4, problem: 4, town: 3, light: 20, drawer: 10, pay: 18, night: 3, review: 5, reliability: 2, close: 3 };
+const pads = { title: 3, problem: 3, town: 3, light: 14, drawer: 8, pay: 15, night: 3, review: 4, reliability: 2, close: 3 };
 const dur = JSON.parse(fs.readFileSync('film/out/narration/durations.json', 'utf8'));
 let t = 0; const timeline = dur.map((s) => { const d = Math.round((s.audio + pads[s.id]) * 10) / 10; const o = { id: s.id, start: t, dur: d, text: s.text }; t += d; return o; });
 const total = t; const scene = (id) => timeline.find((s) => s.id === id);
